@@ -1,0 +1,127 @@
+# ============================================
+# macOS
+# ============================================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+Icon?
+
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Medii virtuale
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+wheels/
+pip-wheel-metadata/
+.installed.cfg
+MANIFEST
+
+# PyInstaller / py2app
+*.manifest
+*.spec
+*.app/
+*.dmg
+.eggs/
+
+# Teste, coverage, cache-uri
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.ipynb_checkpoints/
+
+# Variabile de mediu / secrete
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Loguri si fisiere temporare
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# ============================================
+# Qt (PyQt5 / PyQt6 / PySide2 / PySide6)
+# ============================================
+# Fisiere generate din .ui (pyuic5/pyuic6/pyside6-uic)
+ui_*.py
+
+# Fisiere generate din resurse .qrc (pyrcc5/pyside6-rcc)
+*_rc.py
+qrc_*.py
+resources_rc.py
+
+# Traduceri compilate (pastreaza .ts, ignora .qm)
+*.qm
+
+# Qt Creator / Qt Designer
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.autosave
+*.pyqtc.user
+CMakeLists.txt.user*
+.qtcreator/
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+.qmake.stash
+Makefile*
+
+# Setari locale Qt (QSettings exportate local)
+*.ini
+
+# ============================================
+# IDE / Editoare
+# ============================================
+# PyCharm
+.idea/
+
+# VS Code (pastreaza setarile partajate, ignora restul)
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Spyder / Rope
+.spyderproject
+.spyproject
+.ropeproject
