@@ -27,6 +27,7 @@ __pycache__/
 venv/
 env/
 ENV/
+piu/
 .python-version
 
 # Packaging / build
