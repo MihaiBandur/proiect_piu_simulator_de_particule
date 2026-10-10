@@ -1,0 +1,120 @@
+@startuml
+title Quantum Circuit Simulator - PyQt6
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+package "GUI - PyQt6" {
+
+    class MainWindow {
+        - circuitWidget: CircuitWidget
+        - gatesWidget: GatesWidget
+        - statisticsWidget: StatisticsWidget
+        + runSimulation()
+        + clearCircuit()
+    }
+
+    class CircuitWidget {
+        - circuit: QuantumCircuit
+        + addGate()
+        + removeGate()
+        + paintEvent()
+    }
+
+    class GatesWidget {
+        + selectGate()
+    }
+
+    class StatisticsWidget {
+        + showResults()
+        + updateStatistics()
+    }
+
+    MainWindow *-- CircuitWidget
+    MainWindow *-- GatesWidget
+    MainWindow *-- StatisticsWidget
+}
+
+package "Circuit" {
+
+    class QuantumCircuit {
+        - qubits: List~Qubit~
+        - gates: List~Gate~
+        + addGate(gate)
+        + removeGate(gate)
+        + getGates()
+    }
+
+    class Qubit {
+        - index: int
+        - state: int
+        + setState(state)
+        + getState()
+    }
+
+    abstract class Gate {
+        - name: str
+        - symbol: str
+        - matrix: Matrix
+        + getMatrix()
+    }
+
+    class HGate
+    class XGate
+    class YGate
+    class ZGate
+    class CNOTGate
+
+    Gate <|-- HGate
+    Gate <|-- XGate
+    Gate <|-- YGate
+    Gate <|-- ZGate
+    Gate <|-- CNOTGate
+
+    QuantumCircuit *-- Qubit
+    QuantumCircuit *-- Gate
+}
+
+package "Simulation" {
+
+    class Simulator {
+        + simulate(circuit): SimulationResult
+        + applyGate(state, gate): Matrix
+    }
+
+    class SimulationResult {
+        - state: Matrix
+        - probabilities: dict
+        + getState()
+        + getProbabilities()
+    }
+
+    class Matrix {
+        - values: list
+        + multiply(other)
+        + tensor(other)
+    }
+
+    Simulator --> QuantumCircuit
+    Simulator --> Gate
+    Simulator --> Matrix
+    Simulator --> SimulationResult
+}
+
+package "Statistics" {
+
+    class Statistics {
+        + calculate(result)
+        + probability(state)
+        + mostProbableState()
+    }
+
+    Statistics --> SimulationResult
+}
+
+MainWindow --> QuantumCircuit
+CircuitWidget --> QuantumCircuit
+MainWindow --> Simulator
+MainWindow --> Statistics
+StatisticsWidget --> Statistics
+@enduml
