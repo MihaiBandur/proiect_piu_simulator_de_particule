@@ -1,4 +1,4 @@
-from matrix import Matrix
+from .matrix import Matrix
 from typing import Dict
 
 class SimulationResult:

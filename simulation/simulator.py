@@ -1,7 +1,7 @@
 from circuit.quantum_circuit import QuantumCircuit
 from circuit.gate import Gate
-from simulation_result import SimulationResult
-from matrix import Matrix
+from .simulation_result import SimulationResult
+from .matrix import Matrix
 
 
 class Simulator:
