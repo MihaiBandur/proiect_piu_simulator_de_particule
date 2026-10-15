@@ -7,13 +7,15 @@ Fiecare membru isi inlocuieste zona cu widget-ul lui, fara sa modifice restul:
   - Q Circuit (zona de circuit)   -> Matei
   - Statistics (histograma/tabel) -> Mihai
 """
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QSizePolicy,
     QSpinBox,
     QToolBar,
@@ -24,20 +26,42 @@ from PySide6.QtWidgets import (
 from ui import style
 from ui.gate_palette import GatePalette
 
+APP_TITLE = "Simulator de circuite cuantice"
+FILE_FILTER = "Circuite cuantice (*.json);;Toate fisierele (*)"
+STATUS_TIMEOUT_MS = 5000  # cat ramane afisat un mesaj temporar in bara de stare
+
 
 class MainWindow(QMainWindow):
+    """
+    Fereastra principala. Nu tine starea circuitului: transmite cererile
+    utilizatorului prin semnale, iar modelul (Mihai) si zona de circuit (Matei)
+    le trateaza. Conexiunile se fac din exterior, in main.py.
+    """
+
+    # cereri catre model / simulator
+    newRequested = Signal()
+    openRequested = Signal(str)        # calea fisierului ales
+    saveRequested = Signal(str)        # calea fisierului in care se salveaza
+    clearRequested = Signal()
+    runRequested = Signal()
+    undoRequested = Signal()
+    redoRequested = Signal()
+    qubitCountChanged = Signal(int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Simulator de circuite cuantice")
+        self._currentFile = ""
 
         self._createActions()
         self._createMenus()
         self._createToolBar()
         self._createCentralArea()
+        self._updateWindowTitle()
         self.statusBar().showMessage("Trage o poarta din paleta pe circuit.")
 
+    # ------------------------------------------------------------------ actiuni
     def _createActions(self):
-        
+        # File
         self.newAction = QAction("&Nou", self)
         self.newAction.setShortcut(QKeySequence.StandardKey.New)
         self.openAction = QAction("&Deschide...", self)
@@ -64,6 +88,17 @@ class MainWindow(QMainWindow):
 
         # Help
         self.aboutAction = QAction("&Despre", self)
+
+        # legaturi: fiecare actiune fie deschide un dialog, fie emite o cerere
+        self.newAction.triggered.connect(self.newCircuit)
+        self.openAction.triggered.connect(self.openCircuit)
+        self.saveAction.triggered.connect(self.save)
+        self.saveAsAction.triggered.connect(self.saveAs)
+        self.undoAction.triggered.connect(self.undoRequested)
+        self.redoAction.triggered.connect(self.redoRequested)
+        self.clearAction.triggered.connect(self.clearCircuit)
+        self.runAction.triggered.connect(self.runRequested)
+        self.aboutAction.triggered.connect(self.showAbout)
 
     def _createMenus(self):
         menuBar = self.menuBar()
@@ -102,6 +137,8 @@ class MainWindow(QMainWindow):
         self.qubitSpin = QSpinBox(toolBar)
         self.qubitSpin.setRange(1, 5)
         self.qubitSpin.setValue(3)
+        self.qubitSpin.setToolTip("Numarul de qubiti ai circuitului (intre 1 si 5)")
+        self.qubitSpin.valueChanged.connect(self.qubitCountChanged)
         toolBar.addWidget(self.qubitSpin)
         toolBar.addSeparator()
 
@@ -168,3 +205,106 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(text)
         else:
             self.statusBar().clearMessage()
+
+    def setModified(self, modified):
+        """Apelat de model cand circuitul are (sau nu mai are) modificari nesalvate."""
+        self.setWindowModified(modified)
+
+    def showPlacementError(self, message):
+        """Eroare de plasare: doar in bara de stare, fara dialog care sa intrerupa lucrul."""
+        self.statusBar().showMessage(message, STATUS_TIMEOUT_MS)
+
+    def showFileError(self, message):
+        """Eroare la deschiderea sau salvarea unui fisier: dialog, pentru ca a fost cerut de utilizator."""
+        QMessageBox.warning(self, "Fisierul nu a putut fi folosit", message)
+
+    # ------------------------------------------------------------- fisiere
+    def newCircuit(self):
+        if self._maybeSave():
+            self._setCurrentFile("")
+            self.newRequested.emit()
+
+    def openCircuit(self):
+        if not self._maybeSave():
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Deschide un circuit", "", FILE_FILTER)
+        if path:
+            self._setCurrentFile(path)
+            self.openRequested.emit(path)
+
+    def save(self):
+        """Salveaza in fisierul curent; daca nu exista inca, cere un nume. Intoarce True la succes."""
+        if not self._currentFile:
+            return self.saveAs()
+        self.saveRequested.emit(self._currentFile)
+        self.setWindowModified(False)
+        self.statusBar().showMessage("Circuitul a fost salvat.", STATUS_TIMEOUT_MS)
+        return True
+
+    def saveAs(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Salveaza circuitul", "circuit.json", FILE_FILTER)
+        if not path:
+            return False  # utilizatorul a renuntat
+        self._setCurrentFile(path)
+        return self.save()
+
+    def _setCurrentFile(self, path):
+        self._currentFile = path
+        self._updateWindowTitle()
+
+    def _updateWindowTitle(self):
+        # [*] este inlocuit de Qt cu "*" cand fereastra are modificari nesalvate
+        name = self._currentFile.replace("\\", "/").split("/")[-1] if self._currentFile else "Circuit nou"
+        self.setWindowTitle(f"{name}[*] - {APP_TITLE}")
+
+    # ------------------------------------------------------------- confirmari
+    def _askSaveChanges(self):
+        """Dialogul Save / Discard / Cancel. Intoarce butonul ales."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(APP_TITLE)
+        box.setText("Circuitul are modificari nesalvate.")
+        box.setInformativeText("Vrei sa salvezi modificarile inainte sa continui?")
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.Save)
+        return box.exec()
+
+    def _maybeSave(self):
+        """True daca se poate continua (nimic nesalvat, salvat sau renuntat la modificari)."""
+        if not self.isWindowModified():
+            return True
+        answer = self._askSaveChanges()
+        if answer == QMessageBox.StandardButton.Save:
+            return self.save()
+        return answer == QMessageBox.StandardButton.Discard
+
+    def clearCircuit(self):
+        answer = QMessageBox.question(
+            self,
+            "Goleste circuitul",
+            "Toate portile vor fi sterse din circuit. Poti reveni cu Anuleaza (Ctrl+Z).\n"
+            "Golesti circuitul?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.clearRequested.emit()
+
+    def closeEvent(self, event):
+        if self._maybeSave():
+            event.accept()
+        else:
+            event.ignore()
+
+    def showAbout(self):
+        QMessageBox.about(
+            self,
+            f"Despre {APP_TITLE}",
+            f"<b>{APP_TITLE}</b><br>"
+            "Construieste circuite cuantice cu pana la 5 qubiti si vezi probabilitatile rezultatelor.<br><br>"
+            "Proiect PIU - Bandur Mihai, Lupu Cosette, Mardare Matei",
+        )
