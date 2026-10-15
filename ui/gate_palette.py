@@ -10,7 +10,7 @@ Comunicarea cu restul aplicatiei se face doar prin semnale:
 Drag & drop: datele trase au tipul GATE_MIME_TYPE si contin simbolul portii.
 Zona de circuit (Matei) accepta acest tip in dragEnterEvent()/dropEvent().
 """
-from PySide6.QtCore import QMimeData, QPoint, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QDrag, QFont, QFontMetrics, QPainter
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -48,10 +48,11 @@ GROUP_TITLES = {
     ROLE_MEASURE: "Masurare",
 }
 
-ROLE_COLORS = {
-    ROLE_SINGLE: style.COLOR_GATE_SINGLE,
-    ROLE_CONTROLLED: style.COLOR_GATE_CONTROLLED,
-    ROLE_MEASURE: style.COLOR_GATE_MEASURE,
+# numele culorii din ghidul de stil pentru fiecare rol (culoarea se citeste la desenare)
+ROLE_COLOR_NAMES = {
+    ROLE_SINGLE: "gate_single",
+    ROLE_CONTROLLED: "gate_controlled",
+    ROLE_MEASURE: "gate_measure",
 }
 
 
@@ -73,11 +74,6 @@ class GateButton(QAbstractButton):
         self.setCursor(Qt.CursorShape.OpenHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
-        font = QFont(self.font())
-        font.setPointSize(max(style.FONT_SIZE_NORMAL, style.FONT_SIZE_MIN))
-        font.setBold(True)
-        self.setFont(font)
-
     # ------------------------------------------------------------- proprietati
     def symbol(self):
         return self._symbol
@@ -88,30 +84,43 @@ class GateButton(QAbstractButton):
     def role(self):
         return self._role
 
+    # ------------------------------------------------------------- font
+    def _labelFont(self, pointSize):
+        """Fontul etichetei: pornit din fontul widget-ului (care urmeaza fontul aplicatiei)."""
+        font = QFont(self.font())
+        font.setPointSize(pointSize)
+        font.setBold(True)
+        return font
+
+    def _widthFactor(self):
+        if self._role == ROLE_CONTROLLED:
+            return style.GATE_CONTROLLED_WIDTH_FACTOR
+        return style.GATE_SINGLE_WIDTH_FACTOR
+
     # ------------------------------------------------------------- dimensiuni
     def sizeHint(self):
-        metrics = QFontMetrics(self.font())
+        metrics = QFontMetrics(self._labelFont(style.fontPointSize(style.FONT_SIZE_GATE)))
         side = max(metrics.height(), metrics.horizontalAdvance("CX")) + 2 * style.GATE_PADDING
-        factor = style.GATE_CONTROLLED_WIDTH_FACTOR if self._role == ROLE_CONTROLLED \
-            else style.GATE_SINGLE_WIDTH_FACTOR
-        return QSize(side * factor, side)
+        return QSize(side * self._widthFactor(), side)
 
     def minimumSizeHint(self):
         # nu poate deveni mai mica decat eticheta la fontul minim
-        font = QFont(self.font())
-        font.setPointSize(style.FONT_SIZE_MIN)
-        metrics = QFontMetrics(font)
+        metrics = QFontMetrics(self._labelFont(style.FONT_SIZE_MIN))
         side = max(metrics.height(), metrics.horizontalAdvance("CX")) + style.GATE_PADDING
-        factor = style.GATE_CONTROLLED_WIDTH_FACTOR if self._role == ROLE_CONTROLLED \
-            else style.GATE_SINGLE_WIDTH_FACTOR
-        return QSize(side * factor, side)
+        return QSize(side * self._widthFactor(), side)
+
+    def changeEvent(self, event):
+        # la schimbarea fontului aplicatiei, layout-ul trebuie sa recalculeze dimensiunea
+        if event.type() == QEvent.Type.FontChange:
+            self.updateGeometry()
+        super().changeEvent(event)
 
     # ------------------------------------------------------------- desenare
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        color = QColor(ROLE_COLORS[self._role])
+        color = QColor(style.color(ROLE_COLOR_NAMES[self._role]))
         if self.isDown():
             color = color.darker(style.GATE_PRESSED_DARKER)
         elif self.underMouse():
@@ -125,7 +134,8 @@ class GateButton(QAbstractButton):
         painter.setBrush(color)
         painter.drawRoundedRect(rect, radius, radius)
 
-        painter.setPen(QColor(style.COLOR_GATE_TEXT))
+        painter.setPen(QColor(style.color("gate_text")))
+        painter.setFont(self._labelFont(style.fontPointSize(style.FONT_SIZE_GATE)))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self.text())
 
     # ------------------------------------------------------------- hover
@@ -200,10 +210,8 @@ class GatePalette(QWidget):
         groupLayout = QVBoxLayout()
         groupLayout.setSpacing(style.SPACING_S)  # spatiere mica in interiorul grupului
 
+        # titlul grupului foloseste fontul aplicatiei (deja la minim 10 pt si scalabil)
         titleLabel = QLabel(title, self)
-        font = QFont(titleLabel.font())
-        font.setPointSize(max(style.FONT_SIZE_MIN, titleLabel.font().pointSize()))
-        titleLabel.setFont(font)
         groupLayout.addWidget(titleLabel)
 
         grid = QGridLayout()

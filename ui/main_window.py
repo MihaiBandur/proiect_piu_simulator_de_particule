@@ -8,8 +8,9 @@ Fiecare membru isi inlocuieste zona cu widget-ul lui, fara sa modifice restul:
   - Statistics (histograma/tabel) -> Mihai
 """
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -47,16 +48,20 @@ class MainWindow(QMainWindow):
     undoRequested = Signal()
     redoRequested = Signal()
     qubitCountChanged = Signal(int)
+    # aspectul s-a schimbat (paleta sau marimea textului): widget-urile proprii se redeseneaza
+    appearanceChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._currentFile = ""
+        self._placeholders = []
 
         self._createActions()
         self._createMenus()
         self._createToolBar()
         self._createCentralArea()
         self._updateWindowTitle()
+        self._applyAppearance()
         self.statusBar().showMessage("Trage o poarta din paleta pe circuit.")
 
     # ------------------------------------------------------------------ actiuni
@@ -89,6 +94,22 @@ class MainWindow(QMainWindow):
         # Help
         self.aboutAction = QAction("&Despre", self)
 
+        # View - accesibilitate
+        self.colorblindAction = QAction("Paleta pentru &daltonism", self)
+        self.colorblindAction.setCheckable(True)
+        self.colorblindAction.setStatusTip("Foloseste culori usor de deosebit pentru persoanele cu daltonism")
+        self.colorblindAction.toggled.connect(self.setColorblindMode)
+
+        self.fontScaleGroup = QActionGroup(self)  # o singura marime aleasa la un moment dat
+        self.fontScaleActions = []
+        for name, scale in style.FONT_SCALES:
+            action = QAction(name, self)
+            action.setCheckable(True)
+            action.setChecked(scale == style.fontScale())
+            action.triggered.connect(lambda checked=False, s=scale: self.setFontScale(s))
+            self.fontScaleGroup.addAction(action)
+            self.fontScaleActions.append(action)
+
         # legaturi: fiecare actiune fie deschide un dialog, fie emite o cerere
         self.newAction.triggered.connect(self.newCircuit)
         self.openAction.triggered.connect(self.openCircuit)
@@ -119,6 +140,10 @@ class MainWindow(QMainWindow):
 
         viewMenu = menuBar.addMenu("&View")
         viewMenu.addAction(self.runAction)
+        viewMenu.addSeparator()
+        fontMenu = viewMenu.addMenu("&Marime text")
+        fontMenu.addActions(self.fontScaleActions)
+        viewMenu.addAction(self.colorblindAction)
 
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.aboutAction)
@@ -130,7 +155,7 @@ class MainWindow(QMainWindow):
 
         # actiunea principala in stanga, evidentiata
         toolBar.addAction(self.runAction)
-        toolBar.widgetForAction(self.runAction).setStyleSheet(style.PRIMARY_BUTTON_QSS)
+        self.runButton = toolBar.widgetForAction(self.runAction)  # stilizat in _applyAppearance()
         toolBar.addSeparator()
 
         toolBar.addWidget(QLabel("Qubiti:", toolBar))
@@ -196,8 +221,33 @@ class MainWindow(QMainWindow):
         """Eticheta provizorie, pana cand colegii isi adauga widget-urile."""
         placeholder = QLabel(text)
         placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        placeholder.setStyleSheet(style.PLACEHOLDER_QSS)
+        self._placeholders.append(placeholder)  # stilizat in _applyAppearance()
         return placeholder
+
+    # ------------------------------------------------------------- aspect
+    def setColorblindMode(self, enabled):
+        style.setColorblindMode(enabled)
+        self._applyAppearance()
+
+    def setFontScale(self, scale):
+        style.setFontScale(scale)
+        self._applyAppearance()
+
+    def _applyAppearance(self):
+        """Aplica paleta si marimea textului curente din ghidul de stil."""
+        app = QApplication.instance()
+        font = app.font()
+        font.setPointSize(style.fontPointSize())  # niciodata sub 10 pt
+        app.setFont(font)
+
+        self.runButton.setStyleSheet(style.primaryButtonQss())
+        for placeholder in self._placeholders:
+            placeholder.setStyleSheet(style.placeholderQss())
+
+        # widget-urile desenate in paintEvent() citesc culorile la desenare
+        for widget in self.findChildren(QWidget):
+            widget.update()
+        self.appearanceChanged.emit()
 
     # ------------------------------------------------------------- sloturi
     def _showStatusMessage(self, text):
