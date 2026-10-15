@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui import style
+from ui.gate_palette import GatePalette
 
 
 class MainWindow(QMainWindow):
@@ -49,7 +50,7 @@ class MainWindow(QMainWindow):
         self.exitAction.setShortcut(QKeySequence.StandardKey.Quit)
         self.exitAction.triggered.connect(self.close)
 
-        # Edit (undo/redo vor fi inlocuite cu actiunile din QUndoStack-ul: Mihai)
+        # Edit (undo/redo vor fi inlocuite cu actiunile din QUndoStack-ul lui Mihai)
         self.undoAction = QAction("&Anuleaza", self)
         self.undoAction.setShortcut(QKeySequence.StandardKey.Undo)
         self.redoAction = QAction("&Refa", self)
@@ -92,7 +93,7 @@ class MainWindow(QMainWindow):
         toolBar.setMovable(False)
         self.addToolBar(toolBar)
 
-        # actiunea principala in stanga
+        # actiunea principala in stanga, evidentiata
         toolBar.addAction(self.runAction)
         toolBar.widgetForAction(self.runAction).setStyleSheet(style.PRIMARY_BUTTON_QSS)
         toolBar.addSeparator()
@@ -104,31 +105,39 @@ class MainWindow(QMainWindow):
         toolBar.addWidget(self.qubitSpin)
         toolBar.addSeparator()
 
-        # actiune secundara
+        # actiune secundara, aspect implicit (mai discret)
         toolBar.addAction(self.clearAction)
 
-    
+    # ------------------------------------------------------------- zona centrala
     def _createCentralArea(self):
         central = QWidget(self)
 
-        # panouri provizorii (se inlocuiesc cu widget-urile reale)
-        self.paletteBox = self._createPanel("Operations", "Paleta de porti")
+        # paleta de porti (Cosette)
+        self.gatePalette = GatePalette()
+        self.paletteBox = self._createPanel("Operations", self.gatePalette)
         self.paletteBox.setMinimumWidth(style.PALETTE_MIN_WIDTH)
+        self.gatePalette.statusMessage.connect(self._showStatusMessage)
+
+        # panouri provizorii (se inlocuiesc cu widget-urile reale)
         self.paletteBox.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
-        self.circuitBox = self._createPanel("Q Circuit", "Zona de circuit")
+        self.circuitBox = self._createPanel("Q Circuit", self._createPlaceholder("Zona de circuit"))
         self.circuitBox.setMinimumSize(style.CIRCUIT_MIN_WIDTH, style.CIRCUIT_MIN_HEIGHT)
         self.circuitBox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self.statisticsBox = self._createPanel("Statistics", "Histograma / Tabel (tab Types)")
+        self.statisticsBox = self._createPanel(
+            "Statistics", self._createPlaceholder("Histograma / Tabel (tab Types)")
+        )
         self.statisticsBox.setMinimumHeight(style.STATISTICS_MIN_HEIGHT)
         self.statisticsBox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
+        # dreapta: circuitul deasupra, rezultatele dedesubt
         rightLayout = QVBoxLayout()
         rightLayout.setSpacing(style.SPACING_M)
         rightLayout.addWidget(self.circuitBox, 1)
         rightLayout.addWidget(self.statisticsBox)
 
+        # paleta in coloana din stanga
         rootLayout = QHBoxLayout(central)
         rootLayout.setContentsMargins(style.SPACING_M, style.SPACING_M, style.SPACING_M, style.SPACING_M)
         rootLayout.setSpacing(style.SPACING_M)
@@ -137,14 +146,25 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
-    def _createPanel(self, title, placeholderText):
+    def _createPanel(self, title, content):
+        """Un panou cu titlu care contine widget-ul primit (devine parintele lui)."""
         box = QGroupBox(title)
         layout = QVBoxLayout(box)
         layout.setContentsMargins(style.SPACING_S, style.SPACING_S, style.SPACING_S, style.SPACING_S)
         layout.setSpacing(style.SPACING_S)
+        layout.addWidget(content)
+        return box
 
-        placeholder = QLabel(placeholderText, box)
+    def _createPlaceholder(self, text):
+        """Eticheta provizorie, pana cand colegii isi adauga widget-urile."""
+        placeholder = QLabel(text)
         placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         placeholder.setStyleSheet(style.PLACEHOLDER_QSS)
-        layout.addWidget(placeholder)
-        return box
+        return placeholder
+
+    # ------------------------------------------------------------- sloturi
+    def _showStatusMessage(self, text):
+        if text:
+            self.statusBar().showMessage(text)
+        else:
+            self.statusBar().clearMessage()
