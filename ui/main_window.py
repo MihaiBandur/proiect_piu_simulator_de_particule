@@ -177,11 +177,14 @@ class MainWindow(QMainWindow):
         # paleta de porti (Cosette)
         self.gatePalette = GatePalette()
         self.paletteBox = self._createPanel("Operations", self.gatePalette)
-        self.paletteBox.setMinimumWidth(style.PALETTE_MIN_WIDTH)
+        # fara setMinimumWidth(): o latime minima fixa ar inlocui minimul calculat din continut
+        # si ar taia titlurile grupurilor la fonturi mari (vezi testul de redimensionare)
         self.gatePalette.statusMessage.connect(self._showStatusMessage)
 
         # panouri provizorii (se inlocuiesc cu widget-urile reale)
-        self.paletteBox.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        # Preferred (nu Fixed): paleta se poate lati dupa text cand creste fontul,
+        # dar nu ia spatiul liber, care merge la circuit (factor de intindere 1)
+        self.paletteBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
         self.circuitBox = self._createPanel("Q Circuit", self._createPlaceholder("Zona de circuit"))
         self.circuitBox.setMinimumSize(style.CIRCUIT_MIN_WIDTH, style.CIRCUIT_MIN_HEIGHT)

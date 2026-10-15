@@ -73,7 +73,6 @@ GATE_SINGLE_WIDTH_FACTOR = 1      # poarta pe un qubit: patrat
 GATE_CONTROLLED_WIDTH_FACTOR = 2  # poarta controlata: de doua ori mai lata
 
 # --- Dimensiuni minime ale panourilor ----------------------------------------
-PALETTE_MIN_WIDTH = 160      # px - paleta de porti
 STATISTICS_MIN_HEIGHT = 180  # px - panoul de rezultate
 CIRCUIT_MIN_WIDTH = 400      # px
 CIRCUIT_MIN_HEIGHT = 200     # px
