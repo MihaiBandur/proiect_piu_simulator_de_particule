@@ -130,3 +130,51 @@ def placeholderQss():
         f"QLabel {{ border: 1px dashed {color('panel_border')}; border-radius: {CORNER_RADIUS}px;"
         f" color: {color('placeholder_text')}; }}"
     )
+
+# =============================================================================
+# Zona de circuit (Matei) - sectiune adaugata la final, nu modifica restul fisierului
+# =============================================================================
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPen
+
+CIRCUIT_MIN_COLUMNS = 8            # pasi (coloane) vizibili chiar si intr-un circuit gol
+CIRCUIT_TRAILING_COLUMNS = 2       # coloane libere pastrate dupa ultima poarta plasata
+CIRCUIT_WIRE_WIDTH = 2             # px - firul unui qubit
+CIRCUIT_GRID_WIDTH = 1             # px - separatorul dintre pasi
+CIRCUIT_CURSOR_WIDTH = 2           # px - cursorul de tastatura
+CIRCUIT_PREVIEW_OPACITY = 0.55     # poarta "fantoma" afisata inainte de plasare
+CIRCUIT_INVALID_OPACITY = 0.30     # celula la care plasarea nu este permisa
+CIRCUIT_HOVER_OPACITY = 0.10       # celula de sub mouse cand nu e aleasa nicio poarta
+CIRCUIT_CONTROL_RADIUS_FACTOR = 0.14   # raza punctului de control, ca fractie din latura portii
+CIRCUIT_TARGET_RADIUS_FACTOR = 0.32    # raza cercului tinta (⊕), ca fractie din latura portii
+
+# culorile specifice circuitului; restul (porti, invalid, highlight) vin din paletele de mai sus
+CIRCUIT_COLORS_NORMAL = {
+    "wire": "#8a9099",
+    "grid": "#e3e6ea",
+    "cursor": "#2a6fdb",
+}
+
+CIRCUIT_COLORS_COLORBLIND = {
+    "wire": "#555555",
+    "grid": "#d9dce0",
+    "cursor": "#0072b2",
+}
+
+
+def circuitColor(name):
+    """Culoarea circuitului cu numele dat, din paleta activa."""
+    palette = CIRCUIT_COLORS_COLORBLIND if _colorblindMode else CIRCUIT_COLORS_NORMAL
+    return palette[name]
+
+
+def wirePen():
+    return QPen(QColor(circuitColor("wire")), CIRCUIT_WIRE_WIDTH)
+
+
+def gridPen():
+    return QPen(QColor(circuitColor("grid")), CIRCUIT_GRID_WIDTH)
+
+
+def cursorPen():
+    return QPen(QColor(circuitColor("cursor")), CIRCUIT_CURSOR_WIDTH, Qt.PenStyle.DashLine)

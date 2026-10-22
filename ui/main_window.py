@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from ui import style
 from ui.gate_palette import GatePalette
+from ui.circuit_view import CircuitView
 
 APP_TITLE = "Simulator de circuite cuantice"
 FILE_FILTER = "Circuite cuantice (*.json);;Toate fisierele (*)"
@@ -186,7 +187,12 @@ class MainWindow(QMainWindow):
         # dar nu ia spatiul liber, care merge la circuit (factor de intindere 1)
         self.paletteBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
-        self.circuitBox = self._createPanel("Q Circuit", self._createPlaceholder("Zona de circuit"))
+        self.circuitView = CircuitView()
+        self.circuitBox = self._createPanel("Q Circuit", self.circuitView)
+        self.gatePalette.gateSelected.connect(self.circuitView.setSelectedGate)
+        self.circuitView.statusMessage.connect(self._showStatusMessage)
+        self.circuitView.placementError.connect(self.showPlacementError)
+        self.appearanceChanged.connect(self.circuitView.refreshAppearance)
         self.circuitBox.setMinimumSize(style.CIRCUIT_MIN_WIDTH, style.CIRCUIT_MIN_HEIGHT)
         self.circuitBox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
