@@ -1,46 +1,70 @@
-# Testul de redimensionare a ferestrei
+// Diagrama ierarhiei de widget-uri: fereastra -> panouri -> widget-uri, cu layout-ul de la fiecare nivel.
+// Generare: dot -Tpng ierarhie_widgeturi.dot -o capturi/ierarhie_widgeturi.png
+digraph ierarhie_widgeturi {
+    rankdir=LR;
+    nodesep=0.25;
+    ranksep=0.6;
+    node [fontname="Helvetica", fontsize=11];
+    edge [color="#888888", arrowsize=0.6];
 
-**Responsabil:** Lupu Cosette
-**Stadiu testat:** fereastra principală cu paleta de porți; zona de circuit și histograma sunt încă provizorii.
+    // widget-uri
+    node [shape=box, style="rounded,filled", fillcolor="#e8f0fb", color="#2a6fdb"];
+    mainWindow   [label="MainWindow\n(QMainWindow)"];
+    menuBar      [label="QMenuBar\nFile · Edit · View · Help"];
+    toolBar      [label="QToolBar"];
+    central      [label="QWidget\n(central)"];
+    statusBar    [label="QStatusBar"];
+    runButton    [label="QToolButton\nRun (evidentiat)"];
+    qubitLabel   [label="QLabel\n\"Qubiti:\""];
+    qubitSpin    [label="QSpinBox\n1–5"];
+    clearButton  [label="QToolButton\nGoleste circuitul"];
+    paletteBox   [label="QGroupBox\nOperations"];
+    circuitBox   [label="QGroupBox\nQ Circuit"];
+    statsBox     [label="QGroupBox\nStatistics"];
+    gatePalette  [label="GatePalette\n(QWidget propriu)"];
+    singleTitle  [label="QLabel\n\"Porti pe un qubit\""];
+    singleGates  [label="GateButton ×4\nH · X · Y · Z\n(QAbstractButton)"];
+    ctrlTitle    [label="QLabel\n\"Porti controlate\""];
+    ctrlGates    [label="GateButton\nCX"];
+    measureTitle [label="QLabel\n\"Masurare\""];
+    measureGates [label="GateButton\nM"];
 
-## Metodă
+    // panouri provizorii
+    node [shape=box, style="rounded,filled,dashed", fillcolor="#eeeeee", color="#999999"];
+    circuitView  [label="Zona de circuit\n(QWidget propriu – Matei)"];
+    statsView    [label="Histograma / Tabel\n(QStackedWidget – Mihai)"];
 
-Fereastra a fost micșorată până la dimensiunea minimă permisă, la fiecare dintre cele trei mărimi de text din meniul View (Normal, Mare, Foarte mare).
-La fiecare pas s-a verificat:
+    // layout-uri
+    node [shape=ellipse, style=filled, fillcolor="#fff6dd", color="#e0a100", fontsize=10];
+    rootLayout     [label="QHBoxLayout\nmargini 16, spatiere 16"];
+    rightLayout    [label="QVBoxLayout\nspatiere 16"];
+    paletteLayout  [label="QVBoxLayout\nmargini 8"];
+    circuitLayout  [label="QVBoxLayout\nmargini 8"];
+    statsLayout    [label="QVBoxLayout\nmargini 8"];
+    groupsLayout   [label="QVBoxLayout\nspatiere 16 intre grupuri"];
+    singleLayout   [label="QVBoxLayout\nspatiere 8"];
+    singleGrid     [label="QGridLayout\n2 coloane"];
+    ctrlLayout     [label="QVBoxLayout\nspatiere 8"];
+    ctrlGrid       [label="QGridLayout"];
+    measureLayout  [label="QVBoxLayout\nspatiere 8"];
+    measureGrid    [label="QGridLayout"];
 
-- dacă apare text trunchiat;
-- dacă se suprapun widget-uri;
-- dacă dispar panouri sau acțiuni din toolbar.
+    mainWindow -> {menuBar toolBar central statusBar};
+    toolBar -> {runButton qubitLabel qubitSpin clearButton};
 
-## Rezultate
+    central -> rootLayout;
+    rootLayout -> {paletteBox rightLayout};
+    rightLayout -> {circuitBox statsBox};
 
-| Mărime text | Dimensiune minimă | Problemă găsită |
-| --- | --- | --- |
-| Normal | 573 × 506 px | – |
-| Mare | 596 × 517 px | – |
-| Foarte mare | 608 × 531 px (înainte) | titlurile grupurilor din paletă sunt tăiate („Porti pe un qub…”) |
-| Foarte mare | 626 × 531 px (după) | – |
+    paletteBox -> paletteLayout -> gatePalette -> groupsLayout;
+    circuitBox -> circuitLayout -> circuitView;
+    statsBox -> statsLayout -> statsView;
 
-Capturi: `capturi/redimensionare_inainte.png` și `capturi/redimensionare_dupa.png`.
-
-## Cauza problemei
-
-Panoul paletei avea politica de dimensiune `Fixed` și o lățime minimă fixă, setată cu `setMinimumWidth(160)`.
-O lățime minimă setată explicit înlocuiește minimul pe care layout-ul îl calculează din conținut.
-Când textul a crescut, panoul a rămas la 160 px, iar etichetele au fost tăiate.
-Este aceeași situație ca exemplul din curs cu butonul tăiat de `setFixedWidth`.
-
-## Corectura
-
-- politica orizontală a panoului a devenit `Preferred`;
-- lățimea minimă fixă a fost eliminată, iar minimul se calculează acum din conținut (`minimumSizeHint()`);
-- spațiul liber merge în continuare la zona de circuit, care are factor de întindere 1.
-
-## Concluzie: dimensiunea minimă a ferestrei
-
-Dimensiunea minimă nu se fixează manual cu o valoare constantă.
-Ea rezultă din layout-uri, din `minimumSizeHint()`-ul fiecărui panou, și se adaptează la mărimea textului aleasă (între 573 × 506 și 626 × 531 px în stadiul actual).
-Fereastra pornește la 1100 × 720 px.
-
-**De refăcut testul** după integrarea zonei de circuit (Matei) și a histogramei (Mihai).
-Atunci minimul va fi dat în special de circuitul cu 5 qubiți și de histograma cu 32 de bare.
+    groupsLayout -> {singleLayout ctrlLayout measureLayout};
+    singleLayout -> singleTitle;
+    singleLayout -> singleGrid -> singleGates;
+    ctrlLayout -> ctrlTitle;
+    ctrlLayout -> ctrlGrid -> ctrlGates;
+    measureLayout -> measureTitle;
+    measureLayout -> measureGrid -> measureGates;
+}

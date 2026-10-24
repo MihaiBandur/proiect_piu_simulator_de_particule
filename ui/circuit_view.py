@@ -27,6 +27,7 @@ from PySide6.QtCore import QEvent, QRectF, QPointF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
 from PySide6.QtWidgets import QAbstractScrollArea, QFrame
 
+from circuit.quantum_circuit import DEFAULT_QUBITS
 from ui import style
 from ui.gate_palette import (
     GATE_MIME_TYPE,
@@ -84,7 +85,7 @@ class CircuitView(QAbstractScrollArea):
         self.viewport().setAcceptDrops(True)
         self.viewport().setMouseTracking(True)
         self.viewport().installEventFilter(self)
-        self.setCircuit(3, [])
+        self.setCircuit(DEFAULT_QUBITS, [])
 
     # ------------------------------------------------------------- API public
     def setCircuit(self, qubitCount, gates, initialStates=None):
@@ -267,7 +268,8 @@ class CircuitView(QAbstractScrollArea):
         self.viewport().update()
 
     def _removeAt(self, row, col):
-        gate = self._cells.get((col, row)) or self._selected
+        # doar poarta din celula indicata; o selectie aflata in alta parte a circuitului ramane neatinsa
+        gate = self._cells.get((col, row))
         if gate is not None:
             self.gateRemoveRequested.emit(gate.column, gate.qubits[0])
 
@@ -333,8 +335,10 @@ class CircuitView(QAbstractScrollArea):
 
     def wheelEvent(self, event):
         vbar, hbar = self.verticalScrollBar(), self.horizontalScrollBar()
-        if vbar.maximum() == 0 and hbar.maximum() > 0:
-            hbar.setValue(hbar.value() - event.angleDelta().y())
+        delta = event.angleDelta()
+        # fara scroll vertical, rotita deruleaza pe orizontala; swipe-ul orizontal (trackpad) merge la clasa de baza
+        if vbar.maximum() == 0 and hbar.maximum() > 0 and abs(delta.y()) > abs(delta.x()):
+            hbar.setValue(hbar.value() - delta.y())
             event.accept()
         else:
             super().wheelEvent(event)
@@ -534,7 +538,7 @@ class CircuitView(QAbstractScrollArea):
         targetCenter = self._center(target, column)
         pen = style.wirePen()
         pen.setColor(color)
-        pen.setWidth(style.CIRCUIT_WIRE_WIDTH + 1)
+        pen.setWidth(style.CIRCUIT_CONTROL_LINE_WIDTH)
         painter.setPen(pen)
         painter.drawLine(controlCenter, targetCenter)
 

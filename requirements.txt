@@ -4,7 +4,7 @@
 
 # --- Qt (alege UNUL singur, nu le amesteca) ---
 PySide6>=6.5,<7
-# PyQt6>=6.5,<7
+PyQt6>=6.5,<7
 
 # --- Dependinte specifice versiunii de Python (exemple) ---
 # tomli>=2.0; python_version < "3.11"

@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from circuit.quantum_circuit import DEFAULT_QUBITS, MAX_QUBITS, MIN_QUBITS
 from ui import style
 from ui.gate_palette import GatePalette
 from ui.circuit_view import CircuitView
@@ -42,6 +43,7 @@ class MainWindow(QMainWindow):
 
     # cereri catre model / simulator
     newRequested = Signal()
+    # modelul raspunde cu fileOpened() / fileSaved() la succes, sau cu showFileError()
     openRequested = Signal(str)        # calea fisierului ales
     saveRequested = Signal(str)        # calea fisierului in care se salveaza
     clearRequested = Signal()
@@ -55,6 +57,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._currentFile = ""
+        self._saveConfirmed = False  # setat de fileSaved() in timpul unei cereri de salvare
         self._placeholders = []
 
         self._createActions()
@@ -161,9 +164,9 @@ class MainWindow(QMainWindow):
 
         toolBar.addWidget(QLabel("Qubiti:", toolBar))
         self.qubitSpin = QSpinBox(toolBar)
-        self.qubitSpin.setRange(1, 5)
-        self.qubitSpin.setValue(3)
-        self.qubitSpin.setToolTip("Numarul de qubiti ai circuitului (intre 1 si 5)")
+        self.qubitSpin.setRange(MIN_QUBITS, MAX_QUBITS)
+        self.qubitSpin.setValue(DEFAULT_QUBITS)
+        self.qubitSpin.setToolTip(f"Numarul de qubiti ai circuitului (intre {MIN_QUBITS} si {MAX_QUBITS})")
         self.qubitSpin.valueChanged.connect(self.qubitCountChanged)
         toolBar.addWidget(self.qubitSpin)
         toolBar.addSeparator()
@@ -269,6 +272,13 @@ class MainWindow(QMainWindow):
         """Apelat de model cand circuitul are (sau nu mai are) modificari nesalvate."""
         self.setWindowModified(modified)
 
+    def setQubitCount(self, count):
+        """Apelat de model cand numarul de qubiti se schimba (undo, fisier incarcat)."""
+        # fara semnale: altfel spinbox-ul ar trimite din nou cererea catre model (un pas de undo in plus)
+        self.qubitSpin.blockSignals(True)
+        self.qubitSpin.setValue(count)
+        self.qubitSpin.blockSignals(False)
+
     def showPlacementError(self, message):
         """Eroare de plasare: doar in bara de stare, fara dialog care sa intrerupa lucrul."""
         self.statusBar().showMessage(message, STATUS_TIMEOUT_MS)
@@ -288,24 +298,39 @@ class MainWindow(QMainWindow):
             return
         path, _ = QFileDialog.getOpenFileName(self, "Deschide un circuit", "", FILE_FILTER)
         if path:
-            self._setCurrentFile(path)
+            # fisierul devine cel curent abia cand modelul confirma incarcarea (fileOpened)
             self.openRequested.emit(path)
 
     def save(self):
         """Salveaza in fisierul curent; daca nu exista inca, cere un nume. Intoarce True la succes."""
         if not self._currentFile:
             return self.saveAs()
-        self.saveRequested.emit(self._currentFile)
-        self.setWindowModified(False)
-        self.statusBar().showMessage("Circuitul a fost salvat.", STATUS_TIMEOUT_MS)
-        return True
+        return self._saveTo(self._currentFile)
 
     def saveAs(self):
         path, _ = QFileDialog.getSaveFileName(self, "Salveaza circuitul", "circuit.json", FILE_FILTER)
         if not path:
             return False  # utilizatorul a renuntat
+        return self._saveTo(path)
+
+    def _saveTo(self, path):
+        """Cere salvarea si intoarce True doar daca modelul a confirmat-o prin fileSaved()."""
+        self._saveConfirmed = False
+        # conexiune directa (acelasi fir): modelul raspunde inainte ca emit() sa se termine
+        self.saveRequested.emit(path)
+        return self._saveConfirmed
+
+    def fileOpened(self, path):
+        """Apelat de model dupa ce circuitul a fost incarcat din fisier."""
         self._setCurrentFile(path)
-        return self.save()
+        self.setWindowModified(False)
+
+    def fileSaved(self, path):
+        """Apelat de model dupa ce circuitul a fost scris in fisier."""
+        self._saveConfirmed = True
+        self._setCurrentFile(path)
+        self.setWindowModified(False)
+        self.statusBar().showMessage("Circuitul a fost salvat.", STATUS_TIMEOUT_MS)
 
     def _setCurrentFile(self, path):
         self._currentFile = path
@@ -364,6 +389,6 @@ class MainWindow(QMainWindow):
             self,
             f"Despre {APP_TITLE}",
             f"<b>{APP_TITLE}</b><br>"
-            "Construieste circuite cuantice cu pana la 5 qubiti si vezi probabilitatile rezultatelor.<br><br>"
+            f"Construieste circuite cuantice cu pana la {MAX_QUBITS} qubiti si vezi probabilitatile rezultatelor.<br><br>"
             "Proiect PIU - Bandur Mihai, Lupu Cosette, Mardare Matei",
         )

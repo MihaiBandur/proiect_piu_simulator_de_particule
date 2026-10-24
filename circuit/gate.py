@@ -1,4 +1,7 @@
-from dependencies import *
+import math
+from abc import ABC, abstractmethod
+from typing import List
+
 from simulation.matrix import Matrix
 
 class Gate(ABC):
@@ -58,4 +61,16 @@ class CNOTGate(Gate):
         return Matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
 
 
-GATE_TYPES = {"H": HGate, "X": XGate, "Y": YGate, "Z": ZGate, "CX": CNOTGate}
+class MeasureGate(Gate):
+    NAME, SYMBOL = "Masurare", "M"
+
+    def _createMatrix(self):
+        # masurarea nu este o operatie unitara; simulatorul foloseste proiectorii
+        return None
+
+    def getProjectors(self) -> List[Matrix]:
+        """Proiectorii pe |0> si |1> ai qubitului masurat."""
+        return [Matrix([[1, 0], [0, 0]]), Matrix([[0, 0], [0, 1]])]
+
+
+GATE_TYPES = {"H": HGate, "X": XGate, "Y": YGate, "Z": ZGate, "CX": CNOTGate, "M": MeasureGate}

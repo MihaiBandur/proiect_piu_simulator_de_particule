@@ -140,6 +140,7 @@ from PySide6.QtGui import QColor, QPen
 CIRCUIT_MIN_COLUMNS = 8            # pasi (coloane) vizibili chiar si intr-un circuit gol
 CIRCUIT_TRAILING_COLUMNS = 2       # coloane libere pastrate dupa ultima poarta plasata
 CIRCUIT_WIRE_WIDTH = 2             # px - firul unui qubit
+CIRCUIT_CONTROL_LINE_WIDTH = 3     # px - linia verticala si cercul tinta ale portii CNOT
 CIRCUIT_GRID_WIDTH = 1             # px - separatorul dintre pasi
 CIRCUIT_CURSOR_WIDTH = 2           # px - cursorul de tastatura
 CIRCUIT_PREVIEW_OPACITY = 0.55     # poarta "fantoma" afisata inainte de plasare
