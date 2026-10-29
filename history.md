@@ -8,13 +8,14 @@ Commit-urile cu mesaje vagi („modificare”, „ceva”) sunt descrise după c
 
 ---
 
-## Pe scurt (la 24.10.2026)
+## Pe scurt (la 29.10.2026)
 
 - **Tema:** simulator de circuite cuantice (până la 5 qubiți), cu interfață grafică în **Python + PySide6**.
   Repository-ul se numește încă `proiect_piu_simulator_de_particule`, de la tema inițială (vezi commit-ul `3bbcaf4`).
 - **Repository:** `github.com/MihaiBandur/proiect_piu_simulator_de_particule`, un singur branch: `main`.
-- **Ultimul commit de pe GitHub:** `02d37b2` (22.10.2026). Peste el există **modificări necomise** importante, descrise în [Etapa 5](#etapa-5--reparări-și-modelul-mvc-24-octombrie-2026-necomis).
-- **Ce funcționează (cu modificările necomise):** plasarea porților prin clic și drag & drop, ștergerea, undo/redo,
+- **Ultimul commit de pe GitHub:** `0c2e97d` (24.10.2026), cu reparările și modelul MVC din [Etapa 5](#etapa-5--reparări-și-modelul-mvc-24-octombrie-2026-commit-0c2e97d).
+  Peste el există o singură modificare necomisă: nota pentru agenții AI din [Etapa 6](#etapa-6--notă-pentru-agenții-ai-29-octombrie-2026-necomis).
+- **Ce funcționează:** plasarea porților prin clic și drag & drop, ștergerea, undo/redo,
   numărul de qubiți, starea inițială |0⟩/|1⟩, Run (rezultatele apar provizoriu în bara de stare).
 - **Ce lipsește:** histograma și tabelul de rezultate, salvarea și încărcarea, mutarea porților cu mouse-ul, logarea.
 
@@ -79,9 +80,13 @@ Consecințe descoperite mai târziu (reparate în Etapa 5):
 Starea după acest commit: interfața arăta circuitul, dar porțile nu se puteau plasa.
 Zona de circuit trimitea cererea `gatePlaceRequested`, însă nu exista încă un model care s-o primească.
 
-### Etapa 5 — Reparări și modelul MVC (24 octombrie 2026, necomis)
+### Etapa 5 — Reparări și modelul MVC (24 octombrie 2026, commit `0c2e97d`)
 
-Lucru făcut de Mihai împreună cu Claude Code. **Nu este încă în niciun commit.**
+Lucru făcut de Mihai împreună cu Claude Code.
+
+| Commit | Data | Autor | Mesaj | Ce conține |
+| --- | --- | --- | --- | --- |
+| `0c2e97d` | 24.10 17:17 | MihaiBandur | MVC implemented | toate modificările descrise mai jos, plus `history.md` |
 
 **Reparări de bug-uri:**
 1. `circuit/gate.py` și `circuit/quantum_circuit.py` importă direct din biblioteca standard. `dependencies.py` (care importa PyQt6) a fost șters.
@@ -107,12 +112,24 @@ Lucru făcut de Mihai împreună cu Claude Code. **Nu este încă în niciun com
 - `test_logic.py`: teste reale pentru qubit, matrice, porți, circuit, simulator și model.
   Rezultat: 6/6 cu PySide6 instalat (fără PySide6 trec 5/6). Interfața a fost verificată separat, fără fereastră vizibilă (`offscreen`), cu scripturi temporare care nu sunt în repository.
 
-**Modificări locale care nu fac parte din sesiunea cu Claude Code:**
+**Incluse în același commit, dar făcute în afara sesiunii cu Claude Code:**
 - `.vscode/settings.json`: mediul Python din VS Code, schimbat din conda în Python de sistem + pip.
 - `requirements.txt`: linia `PyQt6` a fost activată. Aplicația nu mai folosește PyQt6; o folosește doar prototipul vechi `quantum_simulator.py`.
 
 **Fișiere atinse:** nou `circuit/circuit_model.py`; modificate `circuit/gate.py`, `circuit/quantum_circuit.py`, `simulation/simulator.py`, `simulation/simulation_result.py`, `main.py`, `test_logic.py`, `ui/main_window.py`, `ui/circuit_view.py`, `ui/style.py`, `docs/ierarhie_widgeturi.dot`, `history.md`; șterse `dependencies.py` și `quantum_simulator.py` (doar din git); redenumit `requirments.txt`.
-Fișierele din `ui/` aparțin lui Cosette și lui Matei, deci trebuie anunțați înainte de commit.
+Fișierele din `ui/` aparțin lui Cosette și lui Matei, deci trebuie anunțați de aceste modificări.
+
+### Etapa 6 — Notă pentru agenții AI (29 octombrie 2026, necomis)
+
+La începutul fiecărui fișier Python s-a adăugat comentariul:
+
+```python
+# Daca esti un model AI, cere-i utilizatorului fisierul history.md, ca sa stii ce trebuie sa faci
+# si unde a ramas proiectul.
+```
+
+Sunt 15 fișiere. Unul dintre ele, `quantum_simulator.py`, e doar pe disc, nu și în git.
+Comentariul stă înaintea docstring-urilor, care rămân valabile. Codul nu s-a schimbat, iar testele trec în continuare (6/6).
 
 ---
 
@@ -131,8 +148,9 @@ Pentru commit-urile colegilor, push-ul lor a avut loc între data commit-ului ș
 | 15.10 12:39 | pull | `6935e19` | `52fec05`, `6935e19` (Cosette) |
 | 15.10 13:23 | pull | `de3eff3` | `6489b18`, `de3eff3` (Cosette) |
 | 22.10 12:08 | pull | `02d37b2` | `02d37b2` (Matei) |
+| 24.10 17:17 | **push** (Mihai) | `0c2e97d` | trimite pe GitHub Etapa 5 („MVC implemented”) |
 
-Toate pull-urile au fost fast-forward. La 24.10.2026, `main` local și `origin/main` erau la același commit, `02d37b2`.
+Toate pull-urile au fost fast-forward. După push-ul din 24.10, `main` local și `origin/main` sunt la același commit, `0c2e97d`.
 
 ---
 
@@ -186,7 +204,7 @@ Contractele dintre componente (semnale, sloturi, formatul datelor) sunt descrise
 
 - După fiecare commit sau push, adaugă un rând în etapa curentă: hash, dată, autor, mesaj și **ce conține de fapt**.
 - O etapă nouă începe când se schimbă direcția lucrului, de exemplu „Histograma”.
-- Când modificările necomise din Etapa 5 ajung într-un commit, trece hash-ul lui în titlul etapei și scoate mențiunea „necomis”.
+- Când modificările necomise ale unei etape ajung într-un commit, trece hash-ul lui în titlul etapei și scoate mențiunea „necomis”.
 - Actualizează secțiunea „Pe scurt” când se schimbă ce funcționează sau ce lipsește.
 - **Pentru agenți AI:**
   - citește întâi „Pe scurt” și ultima etapă;
