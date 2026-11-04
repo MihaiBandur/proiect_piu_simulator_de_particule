@@ -8,16 +8,16 @@ Commit-urile cu mesaje vagi („modificare”, „ceva”) sunt descrise după c
 
 ---
 
-## Pe scurt (la 29.10.2026)
+## Pe scurt (la 04.11.2026)
 
 - **Tema:** simulator de circuite cuantice (până la 5 qubiți), cu interfață grafică în **Python + PySide6**.
   Repository-ul se numește încă `proiect_piu_simulator_de_particule`, de la tema inițială (vezi commit-ul `3bbcaf4`).
 - **Repository:** `github.com/MihaiBandur/proiect_piu_simulator_de_particule`, un singur branch: `main`.
-- **Ultimul commit de pe GitHub:** `0c2e97d` (24.10.2026), cu reparările și modelul MVC din [Etapa 5](#etapa-5--reparări-și-modelul-mvc-24-octombrie-2026-commit-0c2e97d).
-  Peste el există o singură modificare necomisă: nota pentru agenții AI din [Etapa 6](#etapa-6--notă-pentru-agenții-ai-29-octombrie-2026-necomis).
-- **Ce funcționează:** plasarea porților prin clic și drag & drop, ștergerea, undo/redo,
-  numărul de qubiți, starea inițială |0⟩/|1⟩, Run (rezultatele apar provizoriu în bara de stare).
-- **Ce lipsește:** histograma și tabelul de rezultate, salvarea și încărcarea, mutarea porților cu mouse-ul, logarea.
+- **Ultimul commit de pe GitHub:** `05c3593` (29.10.2026), cu nota pentru agenții AI din [Etapa 6](#etapa-6--notă-pentru-agenții-ai-29-octombrie-2026-commit-05c3593).
+  Peste el există modificări necomise: câte un task pentru fiecare membru, în [Etapa 7](#etapa-7--câte-un-task-pentru-fiecare-membru-4-noiembrie-2026-necomis).
+- **Ce funcționează:** plasarea porților prin clic și drag & drop, mutarea lor cu mouse-ul, ștergerea, undo/redo,
+  numărul de qubiți, starea inițială |0⟩/|1⟩, Run cu histograma și tabelul de rezultate, iconițele SVG din toolbar și meniuri.
+- **Ce lipsește:** salvarea și încărcarea, logarea, simbolul de măsurare cu linia clasică, tooltip-urile din circuit, documentarea.
 
 ### Echipa
 
@@ -119,7 +119,11 @@ Lucru făcut de Mihai împreună cu Claude Code.
 **Fișiere atinse:** nou `circuit/circuit_model.py`; modificate `circuit/gate.py`, `circuit/quantum_circuit.py`, `simulation/simulator.py`, `simulation/simulation_result.py`, `main.py`, `test_logic.py`, `ui/main_window.py`, `ui/circuit_view.py`, `ui/style.py`, `docs/ierarhie_widgeturi.dot`, `history.md`; șterse `dependencies.py` și `quantum_simulator.py` (doar din git); redenumit `requirments.txt`.
 Fișierele din `ui/` aparțin lui Cosette și lui Matei, deci trebuie anunțați de aceste modificări.
 
-### Etapa 6 — Notă pentru agenții AI (29 octombrie 2026, necomis)
+### Etapa 6 — Notă pentru agenții AI (29 octombrie 2026, commit `05c3593`)
+
+| Commit | Data | Autor | Mesaj | Ce conține |
+| --- | --- | --- | --- | --- |
+| `05c3593` | 29.10 12:29 | MihaiBandur | history.md updated | nota de mai jos în toate fișierele Python și actualizarea `history.md` |
 
 La începutul fiecărui fișier Python s-a adăugat comentariul:
 
@@ -130,6 +134,52 @@ La începutul fiecărui fișier Python s-a adăugat comentariul:
 
 Sunt 15 fișiere. Unul dintre ele, `quantum_simulator.py`, e doar pe disc, nu și în git.
 Comentariul stă înaintea docstring-urilor, care rămân valabile. Codul nu s-a schimbat, iar testele trec în continuare (6/6).
+Fișierele Python noi primesc și ele comentariul.
+
+### Etapa 7 — Câte un task pentru fiecare membru (4 noiembrie 2026, necomis)
+
+Lucru făcut de Mihai împreună cu Claude Code: primul task din „Ce a rămas de făcut” al fiecăruia.
+**Nu este încă în niciun commit.**
+
+**Mihai — histograma și tabelul** (`ui/results_view.py`, nou):
+- `HistogramView`: widget propriu, desenat în `paintEvent()`.
+  - Barele sunt `QRectF` calculate în virgulă mobilă. Toată geometria se calculează în `_relayout()`, iar `paintEvent()` doar desenează.
+  - Stările apar în hexa, cu q0 ca bit cel mai semnificativ.
+  - Când etichetele nu încap, sunt rotite cu `translate()` + `rotate()`, între `save()` și `restore()`.
+  - Rezultatul cu probabilitatea maximă e evidențiat; dacă toate stările sunt egale, niciunul.
+  - `sizeHint()` și `minimumSizeHint()` se calculează din numărul de bare și din fontul etichetelor (minim 10 pt).
+- `ResultsView`: tab-urile Types (Histogramă / Tabel) comută paginile unui `QStackedWidget`; vederea nu se comută singură.
+  - Tabelul arată starea în hexa, valorile qubiților și probabilitatea exactă, cu 4 zecimale.
+  - Histograma stă într-un `QScrollArea`: la lățime mică apare bara de derulare, în loc să se suprapună etichetele.
+- Panoul Statistics din `MainWindow` folosește acum `ResultsView`. În `main.py`, `resultsReady` merge la panou, iar orice modificare a circuitului șterge rezultatele vechi.
+  Afișarea provizorie din bara de stare (`showResultsPreview`) a fost scoasă.
+- Culorile și dimensiunile histogramei sunt în `ui/style.py`, secțiunea „Rezultatele (Mihai)”.
+
+**Matei — mutarea porților cu mouse-ul** (`ui/circuit_view.py`):
+- Pașii, cum cere PDF-ul:
+  - `mousePressEvent` apucă poarta;
+  - `mouseMoveEvent` arată umbra pe celula țintă, sau celula în roșu dacă mutarea nu e permisă;
+  - `mouseReleaseEvent` aliniază pe grilă și trimite **o singură** cerere, `gateMoveRequested(column, qubit, newColumn, newQubit)`, deci un singur pas de undo.
+- Mutarea pornește abia după distanța standard de drag, așa că un clic simplu rămâne selecție. Esc anulează mutarea.
+- Poarta mutată rămâne selectată, iar CNOT-ul își păstrează forma.
+- Cursorul arată o mână deschisă peste porți și o mână închisă în timpul mutării.
+- În `main.py`, `gateMoveRequested` este legat de `CircuitModel.moveGate`.
+
+**Cosette — iconițe SVG** (`ui/svg_icons.py` și `ui/icons/*.svg`, noi):
+- Iconițe pentru Run, Golește circuitul, Nou, Deschide, Salvează, Anulează și Refă.
+- Se desenează vectorial, la rezoluția ecranului (o iconiță de 24 px are 48 de pixeli reali la 200%), deci nu se pixelizează la scalare.
+- Culoarea e cea a textului din paleta sistemului (estompată când acțiunea e dezactivată); iconița Run folosește culoarea textului butonului din ghidul de stil.
+- În toolbar, iconița stă lângă text, iar mărimea ei urmează mărimea textului aleasă din meniul View.
+- Porțile din paletă și din circuit erau deja desenate vectorial (`QPainter`), deci nu aveau nevoie de fișiere SVG.
+
+**Reparat pe parcurs:** regula `Icon?` din `.gitignore` (pentru fișierele „Icon” ascunse de macOS) prindea și folderul `ui/icons/`, pentru că pe macOS git nu face diferența între litere mari și mici.
+S-a adăugat excepția `!ui/icons/`. Fără ea, SVG-urile n-ar fi ajuns pe GitHub, iar aplicația colegilor s-ar fi oprit la pornire.
+
+**Verificare:** `test_logic.py` 6/6. Separat, fără fereastră vizibilă, au trecut toate verificările scrise pentru cele trei task-uri, cu scripturi temporare care nu sunt în repository:
+histograma și tabelul (Bell, 32 de stări, rotirea etichetelor, ștergerea la modificare), mutarea (undo, CNOT, celulă ocupată, clic, Esc) și iconițele (scalare 2×, culori, stare dezactivată).
+
+**Fișiere atinse:** noi `ui/results_view.py`, `ui/svg_icons.py`, `ui/icons/*.svg` (7); modificate `main.py`, `ui/main_window.py`, `ui/circuit_view.py`, `ui/style.py`, `.gitignore`, `history.md`.
+Matei și Cosette trebuie anunțați: task-urile lor au fost făcute în fișierele lor.
 
 ---
 
@@ -149,8 +199,9 @@ Pentru commit-urile colegilor, push-ul lor a avut loc între data commit-ului ș
 | 15.10 13:23 | pull | `de3eff3` | `6489b18`, `de3eff3` (Cosette) |
 | 22.10 12:08 | pull | `02d37b2` | `02d37b2` (Matei) |
 | 24.10 17:17 | **push** (Mihai) | `0c2e97d` | trimite pe GitHub Etapa 5 („MVC implemented”) |
+| 29.10 12:29 | **push** (Mihai) | `05c3593` | trimite pe GitHub Etapa 6 („history.md updated”) |
 
-Toate pull-urile au fost fast-forward. După push-ul din 24.10, `main` local și `origin/main` sunt la același commit, `0c2e97d`.
+Toate pull-urile au fost fast-forward. La 04.11.2026, după un `git fetch`, `main` local și `origin/main` sunt la același commit, `05c3593`.
 
 ---
 
@@ -164,38 +215,37 @@ Toate pull-urile au fost fast-forward. După push-ul din 24.10, `main` local și
 | `simulation/` | `Matrix`, `Simulator` (vectori de stare, măsurare prin proiectori), `SimulationResult` |
 | `ui/main_window.py` | fereastra principală: meniuri, toolbar, dialoguri, bara de stare |
 | `ui/gate_palette.py` | paleta de porți, `GATE_MIME_TYPE`, `PALETTE_GATES` |
-| `ui/circuit_view.py` | zona de circuit |
+| `ui/circuit_view.py` | zona de circuit (desenare, plasare, mutare, ștergere) |
+| `ui/results_view.py` | panoul Statistics: histograma și tabelul de rezultate |
+| `ui/svg_icons.py`, `ui/icons/` | iconițele SVG ale acțiunilor, desenate vectorial |
 | `ui/style.py` | ghidul de stil (culori, fonturi, spațieri, stiluri de desenare) |
 | `docs/` | glosarul, testul de redimensionare, diagrama ierarhiei de widget-uri |
 | `diagram.uml` | diagrama UML inițială; **învechită** (PyQt6, clasele vechi `CircuitWidget`, `GatesWidget`) |
 | `test_logic.py` | testele logicii și ale modelului (`python test_logic.py`) |
 
 Contractele dintre componente (semnale, sloturi, formatul datelor) sunt descrise în docstring-ul de la începutul fiecărui modul:
-`circuit/circuit_model.py`, `ui/circuit_view.py`, `ui/gate_palette.py`, `ui/main_window.py`.
+`circuit/circuit_model.py`, `ui/circuit_view.py`, `ui/gate_palette.py`, `ui/main_window.py`, `ui/results_view.py`.
 
 ---
 
 ## Ce a rămas de făcut
 
 - **Mihai:**
-  - histograma (`paintEvent`, `QRectF`, etichete în hexa rotite, maximul evidențiat, `sizeHint`) și tabelul, într-un `QStackedWidget`;
   - salvarea și încărcarea, inclusiv validarea fișierelor corupte; după o salvare reușită se apelează `model.setModified(False)` și `window.fileSaved(path)`;
   - logarea: timpul de construire a circuitului, numărul de erori și numărul de undo-uri;
   - convențiile Qt în clasele vechi (`getGates()`, `getState()` etc.);
   - documentarea: UML actualizat, diagrama de secvență, chestionarul, testele la scalare.
 - **Matei:**
-  - mutarea porților cu mouse-ul (comanda `moveGate` există deja în model);
   - simbolul de măsurare și linia clasică;
   - porțile desenate în coordonate locale (`save`/`translate`/`restore`);
   - tooltip pe porțile din circuit;
   - evidențierea porții primite prin `validationError`;
   - stilurile `QPen` cerute (linie clasică, `DashLine`, `RoundCap`).
 - **Cosette:**
-  - iconițe SVG;
   - dialoguri cu `QFormLayout`;
   - diacritice în textele din interfață, ca în glosar;
   - justificarea designului în raport;
-  - refacerea testului de redimensionare după integrare.
+  - refacerea testului de redimensionare după integrare. Observat pe 04.11: la o fereastră de circa 800 px, panoul paletei primește 120 px față de un minim de 125 px, iar titlul „Porti pe un qubit” se taie. Problema exista și înainte de Etapa 7.
 - **Toți:** câte un branch pentru fiecare persoană (acum toată lumea lucrează pe `main`) și șablonul raportului.
 
 ---

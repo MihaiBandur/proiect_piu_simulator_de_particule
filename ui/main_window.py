@@ -3,14 +3,14 @@
 """
 Fereastra principala - schelet (mockup in cod).
 
-Zonele Operations, Q Circuit si Statistics sunt deocamdata etichete provizorii.
-Fiecare membru isi inlocuieste zona cu widget-ul lui, fara sa modifice restul:
+Zonele Operations, Q Circuit si Statistics contin widget-urile membrilor echipei;
+fiecare isi lucreaza zona fara sa modifice restul:
   - Operations (paleta de porti)  -> Cosette
   - Q Circuit (zona de circuit)   -> Matei
   - Statistics (histograma/tabel) -> Mihai
 """
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QAction, QActionGroup, QFontMetrics, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -30,6 +30,8 @@ from circuit.quantum_circuit import DEFAULT_QUBITS, MAX_QUBITS, MIN_QUBITS
 from ui import style
 from ui.gate_palette import GatePalette
 from ui.circuit_view import CircuitView
+from ui.results_view import ResultsView
+from ui.svg_icons import icon
 
 APP_TITLE = "Simulator de circuite cuantice"
 FILE_FILTER = "Circuite cuantice (*.json);;Toate fisierele (*)"
@@ -97,6 +99,18 @@ class MainWindow(QMainWindow):
         self.runAction.setShortcut(QKeySequence("F5"))
         self.runAction.setStatusTip("Simuleaza circuitul (F5)")
 
+        # iconite vectoriale (SVG), clare la orice scalare a ecranului
+        for action, name in (
+            (self.newAction, "new"),
+            (self.openAction, "open"),
+            (self.saveAction, "save"),
+            (self.undoAction, "undo"),
+            (self.redoAction, "redo"),
+            (self.clearAction, "clear"),
+        ):
+            action.setIcon(icon(name))
+        self.runAction.setIcon(icon("run", "primary_text"))  # pe fondul evidentiat al butonului Run
+
         # Help
         self.aboutAction = QAction("&Despre", self)
 
@@ -157,7 +171,10 @@ class MainWindow(QMainWindow):
     def _createToolBar(self):
         toolBar = QToolBar("Bara de unelte", self)
         toolBar.setMovable(False)
+        # iconita langa text: actiunile raman usor de recunoscut si dupa nume
+        toolBar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(toolBar)
+        self.toolBar = toolBar  # marimea iconitelor urmeaza textul, in _applyAppearance()
 
         # actiunea principala in stanga, evidentiata
         toolBar.addAction(self.runAction)
@@ -201,9 +218,9 @@ class MainWindow(QMainWindow):
         self.circuitBox.setMinimumSize(style.CIRCUIT_MIN_WIDTH, style.CIRCUIT_MIN_HEIGHT)
         self.circuitBox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self.statisticsBox = self._createPanel(
-            "Statistics", self._createPlaceholder("Histograma / Tabel (tab Types)")
-        )
+        self.resultsView = ResultsView()
+        self.statisticsBox = self._createPanel("Statistics", self.resultsView)
+        self.appearanceChanged.connect(self.resultsView.refreshAppearance)
         self.statisticsBox.setMinimumHeight(style.STATISTICS_MIN_HEIGHT)
         self.statisticsBox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
@@ -253,6 +270,9 @@ class MainWindow(QMainWindow):
         font = app.font()
         font.setPointSize(style.fontPointSize())  # niciodata sub 10 pt
         app.setFont(font)
+        # iconitele cresc odata cu textul (font scalabil)
+        iconSide = QFontMetrics(font).height()
+        self.toolBar.setIconSize(QSize(iconSide, iconSide))
 
         self.runButton.setStyleSheet(style.primaryButtonQss())
         for placeholder in self._placeholders:

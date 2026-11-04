@@ -13,6 +13,8 @@
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
 Icon?
+# pe macOS git ignora majusculele, iar "Icon?" ar prinde si folderul cu iconitele SVG ale aplicatiei
+!ui/icons/
 
 # ============================================
 # Python

@@ -5,15 +5,13 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from circuit.circuit_model import CircuitModel
-from simulation.simulator import ZERO_PROBABILITY
 from ui.main_window import MainWindow
-
-RESULTS_PREVIEW_COUNT = 4  # cate stari apar in bara de stare, pana cand exista histograma
 
 
 def connectModel(model, window):
-    """Leaga modelul de fereastra si de zona de circuit, doar prin semnale si sloturi."""
+    """Leaga modelul de fereastra, de zona de circuit si de panoul de rezultate, doar prin semnale si sloturi."""
     view = window.circuitView
+    results = window.resultsView
 
     def refreshCircuit():
         view.setCircuit(model.qubitCount(), model.gates(), model.initialStates())
@@ -21,6 +19,7 @@ def connectModel(model, window):
     # cereri din interfata -> comenzi ale modelului
     view.gatePlaceRequested.connect(model.addGate)
     view.gateRemoveRequested.connect(model.removeGate)
+    view.gateMoveRequested.connect(model.moveGate)
     view.initialStateToggleRequested.connect(model.toggleInitialState)
     window.qubitCountChanged.connect(model.setQubitCount)
     window.clearRequested.connect(model.clear)
@@ -30,14 +29,16 @@ def connectModel(model, window):
     window.runRequested.connect(model.run)
 
     # notificari ale modelului -> interfata
+    # orice modificare a circuitului: zona de circuit se redeseneaza, iar rezultatele vechi dispar
     for signal in (model.gateAdded, model.gateRemoved, model.gateMoved,
                    model.initialStateChanged, model.circuitReset):
         signal.connect(refreshCircuit)
+        signal.connect(results.clearResults)
     model.qubitCountChanged.connect(window.setQubitCount)
     model.modifiedChanged.connect(window.setModified)
     # poarta respinsa va fi evidentiata de zona de circuit; aici se afiseaza doar mesajul
     model.validationError.connect(lambda _gate, message: window.showPlacementError(message))
-    model.resultsReady.connect(lambda probabilities: showResultsPreview(window, probabilities))
+    model.resultsReady.connect(results.setResults)
 
     # istoricul de undo: actiunile Anuleaza/Refa sunt active doar cand au ce face
     undoStack = model.undoStack()
@@ -47,16 +48,6 @@ def connectModel(model, window):
     window.redoAction.setEnabled(undoStack.canRedo())
 
     refreshCircuit()
-
-
-def showResultsPreview(window, probabilities):
-    """Provizoriu, pana la histograma: starile cele mai probabile (in hexa) in bara de stare."""
-    ranked = sorted(probabilities.items(), key=lambda item: -item[1])
-    possible = [(bits, p) for bits, p in ranked if p > ZERO_PROBABILITY]
-    text = ", ".join(f"{int(bits, 2):X}: {p:.1%}" for bits, p in possible[:RESULTS_PREVIEW_COUNT])
-    if len(possible) > RESULTS_PREVIEW_COUNT:
-        text += ", ..."
-    window.statusBar().showMessage(f"Rezultate: {text}")
 
 
 if __name__ == "__main__":

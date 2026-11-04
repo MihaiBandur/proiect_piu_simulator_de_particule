@@ -181,3 +181,40 @@ def gridPen():
 
 def cursorPen():
     return QPen(QColor(circuitColor("cursor")), CIRCUIT_CURSOR_WIDTH, Qt.PenStyle.DashLine)
+
+# =============================================================================
+# Rezultatele (Mihai) - histograma si tabelul
+# =============================================================================
+HISTOGRAM_TICK_COUNT = 4           # intervalele axei verticale: 0%, 25%, 50%, 75%, 100%
+HISTOGRAM_BAR_FILL = 0.7           # cat din latimea coloanei unei stari ocupa bara
+HISTOGRAM_MAX_BAR_WIDTH = 48       # px - barele nu se latesc peste aceasta valoare
+HISTOGRAM_MIN_PLOT_HEIGHT = 80     # px - inaltimea minima a zonei cu bare
+HISTOGRAM_LINE_WIDTH = 1           # px - axa, liniile orizontale, conturul barei evidentiate
+
+# barele obisnuite; bara cu probabilitatea maxima foloseste color("highlight")
+RESULTS_COLORS_NORMAL = {
+    "bar": "#4a90e2",
+    "grid": "#e3e6ea",
+    "axis": "#8a9099",
+}
+
+RESULTS_COLORS_COLORBLIND = {
+    "bar": "#0072b2",
+    "grid": "#d9dce0",
+    "axis": "#555555",
+}
+
+
+def resultsColor(name):
+    """Culoarea histogramei cu numele dat, din paleta activa."""
+    palette = RESULTS_COLORS_COLORBLIND if _colorblindMode else RESULTS_COLORS_NORMAL
+    return palette[name]
+
+
+def histogramGridPen():
+    return QPen(QColor(resultsColor("grid")), HISTOGRAM_LINE_WIDTH)
+
+
+def histogramAxisPen():
+    """Axa orizontala si conturul barei evidentiate (o separa de fundal si in paleta pentru daltonism)."""
+    return QPen(QColor(resultsColor("axis")), HISTOGRAM_LINE_WIDTH)

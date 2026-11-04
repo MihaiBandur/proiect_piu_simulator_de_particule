@@ -15,6 +15,7 @@ Intrari (sloturi):
 Iesiri (semnale):
   - gatePlaceRequested(symbol, qubits, column)    -> qubits = [qubit] sau [control, tinta]
   - gateRemoveRequested(column, qubit)
+  - gateMoveRequested(column, qubit, newColumn, newQubit) -> celula apucata ajunge in celula noua
   - initialStateToggleRequested(qubit)
   - selectedGateChanged(symbol)                   -> ca paleta sa poata marca poarta activa
   - placementError(text)                          -> pentru MainWindow.showPlacementError()
@@ -22,12 +23,14 @@ Iesiri (semnale):
 
 Plasare (solutia hibrida): click pe o poarta din paleta, apoi click pe circuit,
 sau drag & drop (GATE_MIME_TYPE). Tastatura: sageti, Enter/Space, Delete, Esc.
+Mutare: o poarta plasata se trage pe alta celula; la eliberarea mouse-ului pleaca o singura
+cerere gateMoveRequested (un singur pas de undo). Esc anuleaza mutarea.
 """
 from dataclasses import dataclass
 
 from PySide6.QtCore import QEvent, QRectF, QPointF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
-from PySide6.QtWidgets import QAbstractScrollArea, QFrame
+from PySide6.QtWidgets import QAbstractScrollArea, QApplication, QFrame
 
 from circuit.quantum_circuit import DEFAULT_QUBITS
 from ui import style
@@ -62,6 +65,7 @@ class PlacedGate:
 class CircuitView(QAbstractScrollArea):
     gatePlaceRequested = Signal(str, list, int)
     gateRemoveRequested = Signal(int, int)
+    gateMoveRequested = Signal(int, int, int, int)
     initialStateToggleRequested = Signal(int)
     selectedGateChanged = Signal(str)
     placementError = Signal(str)
@@ -78,6 +82,9 @@ class CircuitView(QAbstractScrollArea):
         self._hover = None          # (rand, coloana) sub mouse
         self._cursorCell = (0, 0)   # cursorul de tastatura
         self._selected = None       # poarta plasata, selectata
+        self._grab = None           # (poarta, rand, coloana, pozitia mouse-ului) apucata pentru mutare
+        self._moving = False        # mouse-ul s-a deplasat destul cat sa fie o mutare, nu un click
+        self._moveTarget = None     # (rand, coloana) unde ar ajunge celula apucata
         self._lastHint = ""
         self._side = self._cellW = self._cellH = self._labelW = self._x0 = self._y0 = 0
 
@@ -96,8 +103,10 @@ class CircuitView(QAbstractScrollArea):
         self._initialStates = (states + [0] * qubitCount)[:qubitCount]
         self._gates = list(gates)
         self._cells = {(g.column, q): g for g in self._gates for q in g.qubits}
-        if self._selected is not None:
-            self._selected = self._cells.get((self._selected.column, self._selected.qubits[0]))
+        # selectia ramane pe aceeasi poarta (si dupa o mutare), cat timp poarta exista
+        if self._selected not in self._gates:
+            self._selected = None
+        self._endMove()
         row, col = self._cursorCell
         self._cursorCell = (min(row, max(qubitCount - 1, 0)), col)
         self._hover = None
@@ -275,6 +284,59 @@ class CircuitView(QAbstractScrollArea):
         if gate is not None:
             self.gateRemoveRequested.emit(gate.column, gate.qubits[0])
 
+    # ------------------------------------------------------------- mutare
+    def _movedQubits(self, gate, row, newRow):
+        """Qubitii portii dupa mutare: toata poarta se deplaseaza cu celula apucata."""
+        return [q + newRow - row for q in gate.qubits]
+
+    def _validateMove(self, gate, row, col, newRow, newCol):
+        """Intoarce mesajul de eroare, sau "" daca poarta poate fi mutata."""
+        name = GATE_INFO.get(gate.symbol, (gate.symbol, ROLE_SINGLE))[0]
+        qubits = self._movedQubits(gate, row, newRow)
+        if not all(0 <= q < self._qubitCount for q in qubits):
+            return f"Poarta {name} nu incape pe qubitii circuitului in aceasta pozitie."
+        for qubit in qubits:
+            other = self._cells.get((newCol, qubit))
+            if other is not None and other is not gate:
+                return "Celula este ocupata de alta poarta."
+        return ""
+
+    def _dragGrabbedGate(self, pos):
+        gate, row, col, start = self._grab
+        if not self._moving and (pos - start).manhattanLength() < QApplication.startDragDistance():
+            return  # inca e un click, nu o mutare
+        self._moving = True
+        self._hover = None
+        self._moveTarget = self._cellAt(pos) if pos.x() >= self._labelW else None
+        target = self._moveTarget
+        invalid = target is not None and target != (row, col) and self._validateMove(gate, row, col, *target)
+        self.viewport().setCursor(Qt.CursorShape.ForbiddenCursor if invalid else Qt.CursorShape.ClosedHandCursor)
+        hint = "Elibereaza butonul pentru a muta poarta, Esc pentru a renunta."
+        if hint != self._lastHint:
+            self._lastHint = hint
+            self.statusMessage.emit(hint)
+        self.viewport().update()
+
+    def _finishMove(self):
+        """La eliberarea mouse-ului: o singura cerere de mutare, aliniata pe grila."""
+        gate, row, col, _ = self._grab
+        target = self._moveTarget if self._moving else None
+        self._endMove()
+        if target is None or target == (row, col):
+            return
+        error = self._validateMove(gate, row, col, *target)
+        if error:
+            self.placementError.emit(error)
+        else:
+            newRow, newCol = target
+            self.gateMoveRequested.emit(col, row, newCol, newRow)
+
+    def _endMove(self):
+        self._grab = None
+        self._moving = False
+        self._moveTarget = None
+        self.viewport().update()
+
     # ------------------------------------------------------------- hover
     def _updateHover(self, pos):
         cell = None
@@ -296,8 +358,8 @@ class CircuitView(QAbstractScrollArea):
                 shape = Qt.CursorShape.ForbiddenCursor if self._validate(symbol, row, col) else Qt.CursorShape.CrossCursor
             elif gate is not None:
                 name = GATE_INFO.get(gate.symbol, (gate.symbol, ROLE_SINGLE))[0]
-                hint = f"Click dreapta sau Delete pentru a sterge poarta {name}."
-                shape = Qt.CursorShape.PointingHandCursor
+                hint = f"Trage poarta {name} pentru a o muta. Click dreapta sau Delete o sterge."
+                shape = Qt.CursorShape.OpenHandCursor
         self._hover = cell
         self.viewport().setCursor(shape)
         if hint != self._lastHint:
@@ -312,7 +374,17 @@ class CircuitView(QAbstractScrollArea):
 
     # ------------------------------------------------------------- mouse
     def mouseMoveEvent(self, event):
+        if self._grab is not None and event.buttons() & Qt.MouseButton.LeftButton:
+            self._dragGrabbedGate(event.position())
+            return
         self._updateHover(event.position())
+
+    def mouseReleaseEvent(self, event):
+        if self._grab is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._finishMove()
+            self._updateHover(event.position())
+            return
+        super().mouseReleaseEvent(event)
 
     def mousePressEvent(self, event):
         pos = event.position()
@@ -328,6 +400,9 @@ class CircuitView(QAbstractScrollArea):
         self._cursorCell = cell
         if event.button() == Qt.MouseButton.LeftButton:
             self._activate(row, col)
+            # fara poarta aleasa din paleta, o poarta plasata poate fi apucata si mutata
+            if not self._tool and self._selected is not None:
+                self._grab = (self._selected, row, col, pos)
         elif event.button() == Qt.MouseButton.RightButton:
             if (col, row) in self._cells:
                 self._removeAt(row, col)
@@ -397,7 +472,9 @@ class CircuitView(QAbstractScrollArea):
             self._removeAt(row, col)
             return
         elif key == Qt.Key.Key_Escape:
-            if self._tool:
+            if self._grab is not None:
+                self._endMove()
+            elif self._tool:
                 self.setSelectedGate("")
             else:
                 self._selected = None
@@ -433,6 +510,7 @@ class CircuitView(QAbstractScrollArea):
         self._paintWires(painter, right)
         self._paintGates(painter)
         self._paintPreview(painter)
+        self._paintMovePreview(painter)
         self._paintKeyboardCursor(painter)
         painter.restore()
 
@@ -494,6 +572,24 @@ class CircuitView(QAbstractScrollArea):
             return
         painter.setOpacity(style.CIRCUIT_PREVIEW_OPACITY)
         self._drawGate(painter, symbol, self._qubitsFor(symbol, row), col)
+        painter.setOpacity(1.0)
+
+    def _paintMovePreview(self, painter):
+        """Umbra portii pe celula tinta a mutarii, sau celula in rosu daca mutarea nu e permisa."""
+        if not self._moving or self._moveTarget is None:
+            return
+        gate, row, col, _ = self._grab
+        newRow, newCol = self._moveTarget
+        if (newRow, newCol) == (row, col):
+            return
+        if self._validateMove(gate, row, col, newRow, newCol):
+            painter.setOpacity(style.CIRCUIT_INVALID_OPACITY)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(style.color("invalid")))
+            painter.drawRoundedRect(self._cellRect(newRow, newCol), style.CORNER_RADIUS, style.CORNER_RADIUS)
+        else:
+            painter.setOpacity(style.CIRCUIT_PREVIEW_OPACITY)
+            self._drawGate(painter, gate.symbol, self._movedQubits(gate, row, newRow), newCol)
         painter.setOpacity(1.0)
 
     def _paintKeyboardCursor(self, painter):
