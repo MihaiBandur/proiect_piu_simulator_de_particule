@@ -13,6 +13,7 @@ from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QFontMetrics, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -30,6 +31,7 @@ from circuit.quantum_circuit import DEFAULT_QUBITS, MAX_QUBITS, MIN_QUBITS
 from ui import style
 from ui.gate_palette import GatePalette
 from ui.circuit_view import CircuitView
+from ui.new_circuit_dialog import NewCircuitDialog
 from ui.results_view import ResultsView
 from ui.svg_icons import icon
 
@@ -46,7 +48,7 @@ class MainWindow(QMainWindow):
     """
 
     # cereri catre model / simulator
-    newRequested = Signal()
+    newRequested = Signal(int, list)   # numarul de qubiti si starile initiale alese in dialogul "Circuit nou"
     # modelul raspunde cu fileOpened() / fileSaved() la succes, sau cu showFileError()
     openRequested = Signal(str)        # calea fisierului ales
     saveRequested = Signal(str)        # calea fisierului in care se salveaza
@@ -311,9 +313,13 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------- fisiere
     def newCircuit(self):
+        # intai formularul; intrebarea despre modificarile nesalvate apare doar daca utilizatorul confirma
+        dialog = NewCircuitDialog(self.qubitSpin.value(), self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
         if self._maybeSave():
             self._setCurrentFile("")
-            self.newRequested.emit()
+            self.newRequested.emit(dialog.qubitCount(), dialog.initialStates())
 
     def openCircuit(self):
         if not self._maybeSave():

@@ -6,12 +6,15 @@ Dacă ai nevoie de un termen nou, adaugă-l aici înainte să-l folosești în c
 | Termen în interfață | Înseamnă | Nu folosi |
 | --- | --- | --- |
 | qubit / qubiți | unitatea de informație cuantică; un fir orizontal în circuit | bit cuantic, fir, linie |
-| poartă / porți | operația aplicată pe unul sau mai mulți qubiți (H, X, Y, Z, CNOT) | operator, gate, bloc |
+| poartă / porți | operația aplicată pe unul sau mai mulți qubiți (H, X, Y, Z, CNOT, Toffoli) | operator, gate, bloc |
 | poartă pe un qubit | H, X, Y, Z | poartă simplă |
-| poartă controlată | CNOT: are un qubit de control și un qubit țintă | poartă dublă |
+| poartă controlată | CNOT (un qubit de control) și Toffoli (doi qubiți de control), fiecare cu un qubit țintă | poartă dublă, poartă triplă |
 | qubit de control | qubitul care decide dacă se aplică operația | sursă |
 | qubit țintă | qubitul asupra căruia se aplică operația | destinație |
 | măsurare | operația care citește un qubit și dă 0 sau 1 | citire, measure |
+| linie clasică | firul dublu desenat după o măsurare, până la următoarea poartă de pe același qubit: qubitul are atunci o valoare sigură, 0 sau 1 | fir dublu, bit clasic |
+| pas | o coloană a circuitului; porțile de pe același pas se aplică în același timp | coloană, moment |
+| circuit nou | circuitul gol creat din File > Nou, cu numărul de qubiți și stările inițiale alese în dialog | proiect nou, document nou |
 | circuit | ansamblul de qubiți și porți construit de utilizator | schemă, diagramă |
 | stare inițială | valoarea de pornire a unui qubit: \|0⟩ sau \|1⟩ | valoare inițială |
 | simulare | calculul rezultatelor circuitului (butonul Run) | rulare, execuție |
@@ -42,4 +45,5 @@ Dacă ai nevoie de un termen nou, adaugă-l aici înainte să-l folosești în c
 | Y | Pauli-Y |
 | Z | Pauli-Z |
 | CX | CNOT |
+| CCX | Toffoli |
 | M | Măsurare |

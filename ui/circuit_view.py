@@ -13,7 +13,8 @@ Intrari (sloturi):
   - refreshAppearance()                           -> la schimbarea paletei / marimii textului
 
 Iesiri (semnale):
-  - gatePlaceRequested(symbol, qubits, column)    -> qubits = [qubit] sau [control, tinta]
+  - gatePlaceRequested(symbol, qubits, column)    -> qubits = [qubit], [control, tinta] (CNOT)
+                                                     sau [control1, control2, tinta] (Toffoli)
   - gateRemoveRequested(column, qubit)
   - gateMoveRequested(column, qubit, newColumn, newQubit) -> celula apucata ajunge in celula noua
   - initialStateToggleRequested(qubit)
@@ -25,6 +26,15 @@ Plasare (solutia hibrida): click pe o poarta din paleta, apoi click pe circuit,
 sau drag & drop (GATE_MIME_TYPE). Tastatura: sageti, Enter/Space, Delete, Esc.
 Mutare: o poarta plasata se trage pe alta celula; la eliberarea mouse-ului pleaca o singura
 cerere gateMoveRequested (un singur pas de undo). Esc anuleaza mutarea.
+
+Porti controlate: qubitul pe care se face click este primul control; ceilalti qubiti ai portii
+sunt vecinii lui (CNOT: tinta dedesubt; Toffoli: trei qubiti alaturati, tinta la capatul de jos).
+Pe ultimul qubit, tinta trece deasupra. Desen: puncte pe controale, ⊕ pe tinta, linie intre ele.
+
+Masurare: simbolul aparatului de masura (arc si ac). Dupa masurare, firul qubitului devine
+linie clasica (linie dubla) pana la urmatoarea poarta de pe acelasi qubit: intre ele, qubitul
+are o valoare sigura, 0 sau 1. Simulatorul permite porti dupa masurare, deci linia clasica nu
+merge neaparat pana la capatul circuitului.
 """
 from dataclasses import dataclass
 
@@ -32,6 +42,7 @@ from PySide6.QtCore import QEvent, QRectF, QPointF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
 from PySide6.QtWidgets import QAbstractScrollArea, QApplication, QFrame
 
+from circuit.gate import GATE_TYPES
 from circuit.quantum_circuit import DEFAULT_QUBITS
 from ui import style
 from ui.gate_palette import (
@@ -55,7 +66,10 @@ ARROW_KEYS = {
 
 @dataclass(frozen=True)
 class PlacedGate:
-    """O poarta plasata, asa cum o afiseaza vederea. Pentru CX: qubits = (control, tinta)."""
+    """O poarta plasata, asa cum o afiseaza vederea.
+
+    Pentru CX: qubits = (control, tinta); pentru CCX: (control1, control2, tinta). Tinta e mereu ultima.
+    """
 
     symbol: str
     column: int
@@ -244,18 +258,33 @@ class CircuitView(QAbstractScrollArea):
     def _activeSymbol(self):
         return self._dragSymbol or self._tool
 
+    def _arity(self, symbol):
+        """Pe cati qubiti actioneaza poarta (1, 2 pentru CNOT, 3 pentru Toffoli)."""
+        gateType = GATE_TYPES.get(symbol)
+        return gateType.ARITY if gateType is not None else 1
+
     def _qubitsFor(self, symbol, row):
-        role = GATE_INFO.get(symbol, (symbol, ROLE_SINGLE))[1]
-        if role == ROLE_CONTROLLED and self._qubitCount >= 2:
-            target = row + 1 if row + 1 < self._qubitCount else row - 1
-            return (row, target)
-        return (row,)
+        """Qubitii portii plasate din randul dat: (qubit) sau (controale..., tinta).
+
+        Poarta ocupa qubiti alaturati, incepand cu randul dat cand incape, altfel urcand.
+        Randul dat este primul control; tinta este capatul de jos al grupului, sau cel de sus
+        cand randul dat este chiar capatul de jos (ex. CNOT pe ultimul qubit: tinta deasupra).
+        """
+        arity = self._arity(symbol)
+        if arity == 1 or self._qubitCount < arity:
+            return (row,)
+        first = min(row, self._qubitCount - arity)
+        group = range(first, first + arity)
+        target = group[0] if row == group[-1] else group[-1]
+        controls = [row] + [q for q in group if q not in (row, target)]
+        return tuple(controls + [target])
 
     def _validate(self, symbol, row, col):
         """Intoarce mesajul de eroare, sau "" daca poarta poate fi plasata."""
-        name, role = GATE_INFO.get(symbol, (symbol, ROLE_SINGLE))
-        if role == ROLE_CONTROLLED and self._qubitCount < 2:
-            return f"Poarta {name} are nevoie de cel putin 2 qubiti."
+        name = GATE_INFO.get(symbol, (symbol, ROLE_SINGLE))[0]
+        arity = self._arity(symbol)
+        if self._qubitCount < arity:
+            return f"Poarta {name} are nevoie de cel putin {arity} qubiti."
         for qubit in self._qubitsFor(symbol, row):
             if (col, qubit) in self._cells:
                 if qubit == row:
@@ -526,10 +555,32 @@ class CircuitView(QAbstractScrollArea):
             painter.drawLine(QPointF(x, top), QPointF(x, bottom))
 
     def _paintWires(self, painter, right):
-        painter.setPen(style.wirePen())
+        """Firul fiecarui qubit; dupa o masurare, linie clasica pana la urmatoarea poarta a qubitului."""
         for row in range(self._qubitCount):
             y = self._center(row, 0).y()
-            painter.drawLine(QPointF(self._x0, y), QPointF(right, y))
+            start, classical = self._x0, False
+            # trecerea dintre segmente se face in centrul portii, deci e acoperita de desenul ei
+            for col in sorted(c for (c, q) in self._cells if q == row):
+                x = self._center(row, col).x()
+                self._drawWireSegment(painter, y, start, x, classical)
+                start = x
+                classical = self._role(self._cells[(col, row)].symbol) == ROLE_MEASURE
+            self._drawWireSegment(painter, y, start, right, classical)
+
+    def _drawWireSegment(self, painter, y, x1, x2, classical):
+        if x2 <= x1:
+            return
+        if classical:
+            painter.setPen(style.classicalWirePen())
+            half = style.CIRCUIT_CLASSICAL_GAP / 2
+            painter.drawLine(QPointF(x1, y - half), QPointF(x2, y - half))
+            painter.drawLine(QPointF(x1, y + half), QPointF(x2, y + half))
+        else:
+            painter.setPen(style.wirePen())
+            painter.drawLine(QPointF(x1, y), QPointF(x2, y))
+
+    def _role(self, symbol):
+        return GATE_INFO.get(symbol, (symbol, ROLE_SINGLE))[1]
 
     def _paintHoverCell(self, painter):
         if self._hover is None:
@@ -616,9 +667,9 @@ class CircuitView(QAbstractScrollArea):
             )
 
     def _drawGate(self, painter, symbol, qubits, column):
-        name, role = GATE_INFO.get(symbol, (symbol, ROLE_SINGLE))
+        role = self._role(symbol)
         color = QColor(style.color(ROLE_COLOR_NAMES[role]))
-        if role == ROLE_CONTROLLED and len(qubits) == 2:
+        if role == ROLE_CONTROLLED and len(qubits) >= 2:
             self._drawControlled(painter, color, qubits, column)
             return
         rect = self._gateRect(qubits[0], column)
@@ -626,24 +677,44 @@ class CircuitView(QAbstractScrollArea):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(color)
         painter.drawRoundedRect(rect, radius, radius)
+        if role == ROLE_MEASURE:
+            self._drawMeter(painter, rect)
+            return
         painter.setPen(QColor(style.color("gate_text")))
         painter.setFont(self._gateFont())
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, symbol)
 
+    def _drawMeter(self, painter, rect):
+        """Aparatul de masura, desenat in coordonatele locale ale portii (originea la baza arcului)."""
+        side = rect.height()
+        radius = side * style.CIRCUIT_METER_ARC_FACTOR
+        painter.save()
+        painter.translate(rect.center() + QPointF(0, side * style.CIRCUIT_METER_BASELINE_FACTOR))
+        painter.setPen(style.meterPen("gate_text", side))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        # semicercul de sus: unghiurile Qt sunt in 1/16 de grad, de la 0° (dreapta) spre 180° (stanga)
+        painter.drawArc(QRectF(-radius, -radius, 2 * radius, 2 * radius), 0, 180 * 16)
+        # acul porneste din centrul arcului; rotirea cu unghi negativ il ridica spre dreapta-sus
+        painter.rotate(-style.CIRCUIT_METER_NEEDLE_ANGLE)
+        painter.drawLine(QPointF(0, 0), QPointF(side * style.CIRCUIT_METER_NEEDLE_FACTOR, 0))
+        painter.restore()
+
     def _drawControlled(self, painter, color, qubits, column):
-        control, target = qubits
-        controlCenter = self._center(control, column)
+        """CNOT si Toffoli: puncte pe qubitii de control, ⊕ pe tinta (ultimul qubit), linie intre ele."""
+        *controls, target = qubits
+        rows = sorted(qubits)
         targetCenter = self._center(target, column)
         pen = style.wirePen()
         pen.setColor(color)
         pen.setWidth(style.CIRCUIT_CONTROL_LINE_WIDTH)
         painter.setPen(pen)
-        painter.drawLine(controlCenter, targetCenter)
+        painter.drawLine(self._center(rows[0], column), self._center(rows[-1], column))
 
         dot = self._side * style.CIRCUIT_CONTROL_RADIUS_FACTOR
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(color)
-        painter.drawEllipse(controlCenter, dot, dot)
+        for control in controls:
+            painter.drawEllipse(self._center(control, column), dot, dot)
 
         ring = self._side * style.CIRCUIT_TARGET_RADIUS_FACTOR
         painter.setPen(pen)

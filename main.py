@@ -24,6 +24,9 @@ def connectModel(model, window):
     window.qubitCountChanged.connect(model.setQubitCount)
     window.clearRequested.connect(model.clear)
     window.newRequested.connect(model.newCircuit)
+    # conexiuni directe (acelasi fir): MainWindow afla rezultatul salvarii inainte ca emit() sa se termine
+    window.saveRequested.connect(model.saveFile)
+    window.openRequested.connect(model.openFile)
     window.undoRequested.connect(model.undo)
     window.redoRequested.connect(model.redo)
     window.runRequested.connect(model.run)
@@ -39,6 +42,9 @@ def connectModel(model, window):
     # poarta respinsa va fi evidentiata de zona de circuit; aici se afiseaza doar mesajul
     model.validationError.connect(lambda _gate, message: window.showPlacementError(message))
     model.resultsReady.connect(results.setResults)
+    model.fileSaved.connect(window.fileSaved)
+    model.fileOpened.connect(window.fileOpened)
+    model.fileError.connect(window.showFileError)
 
     # istoricul de undo: actiunile Anuleaza/Refa sunt active doar cand au ce face
     undoStack = model.undoStack()

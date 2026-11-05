@@ -150,6 +150,15 @@ CIRCUIT_INVALID_OPACITY = 0.30     # celula la care plasarea nu este permisa
 CIRCUIT_HOVER_OPACITY = 0.10       # celula de sub mouse cand nu e aleasa nicio poarta
 CIRCUIT_CONTROL_RADIUS_FACTOR = 0.14   # raza punctului de control, ca fractie din latura portii
 CIRCUIT_TARGET_RADIUS_FACTOR = 0.32    # raza cercului tinta (⊕), ca fractie din latura portii
+CIRCUIT_CLASSICAL_WIDTH = 1        # px - fiecare dintre cele doua linii ale liniei clasice (dupa masurare)
+CIRCUIT_CLASSICAL_GAP = 4          # px - distanta dintre cele doua linii ale liniei clasice
+
+# simbolul de masurare (aparatul de masura), ca fractii din latura portii
+CIRCUIT_METER_ARC_FACTOR = 0.30        # raza arcului
+CIRCUIT_METER_BASELINE_FACTOR = 0.14   # cat de jos fata de centrul portii sta baza arcului
+CIRCUIT_METER_NEEDLE_FACTOR = 0.40     # lungimea acului
+CIRCUIT_METER_NEEDLE_ANGLE = 50        # grade - unghiul acului fata de baza arcului
+CIRCUIT_METER_LINE_FACTOR = 0.065      # grosimea liniilor simbolului (creste odata cu textul)
 
 # culorile specifice circuitului; restul (porti, invalid, highlight) vin din paletele de mai sus
 CIRCUIT_COLORS_NORMAL = {
@@ -181,6 +190,18 @@ def gridPen():
 
 def cursorPen():
     return QPen(QColor(circuitColor("cursor")), CIRCUIT_CURSOR_WIDTH, Qt.PenStyle.DashLine)
+
+
+def classicalWirePen():
+    """Una dintre cele doua linii subtiri ale liniei clasice; aceeasi culoare ca firul qubitului."""
+    return QPen(QColor(circuitColor("wire")), CIRCUIT_CLASSICAL_WIDTH)
+
+
+def meterPen(colorName, gateSide):
+    """Arcul si acul simbolului de masurare: capete rotunjite, grosime proportionala cu poarta."""
+    pen = QPen(QColor(color(colorName)), max(1.0, gateSide * CIRCUIT_METER_LINE_FACTOR))
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    return pen
 
 # =============================================================================
 # Rezultatele (Mihai) - histograma si tabelul

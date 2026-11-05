@@ -58,20 +58,30 @@ class Simulator:
         return full
 
     def _expand(self, gate: Gate, n: int) -> Matrix:
-        """Extinde matricea porții la întreg spațiul 2^n x 2^n."""
+        """Extinde matricea porții la întreg spațiul 2^n x 2^n.
+
+        Matricea porții are baza |gate.qubits[0], gate.qubits[1], ...>, cu primul qubit ca bit
+        cel mai semnificativ (CNOT: |control, tinta>; Toffoli: |control1, control2, tinta>).
+        Qubitii portii pot fi oricare din circuit, in orice ordine.
+        """
         if len(gate.qubits) == 1:
             return self._expandSingle(gate.getMatrix(), gate.qubits[0], n)
 
-        c, t = gate.qubits
-        sc, st = n - 1 - c, n - 1 - t  
+        k = len(gate.qubits)
+        shifts = [n - 1 - q for q in gate.qubits]  # pozitia bitului fiecarui qubit in indicele starii
+        mask = sum(1 << s for s in shifts)
         dim = 2 ** n
         u = gate.getMatrix().values
         full = [[0j] * dim for _ in range(dim)]
         for col in range(dim):
-            bc, bt = (col >> sc) & 1, (col >> st) & 1
-            base = col & ~(1 << sc) & ~(1 << st)
-            for oc in (0, 1):
-                for ot in (0, 1):
-                    row = base | (oc << sc) | (ot << st)
-                    full[row][col] = u[oc * 2 + ot][bc * 2 + bt]
+            # indicele in baza portii: bitii qubitilor ei, in ordinea din gate.qubits
+            local = 0
+            for s in shifts:
+                local = (local << 1) | ((col >> s) & 1)
+            base = col & ~mask  # qubitii pe care poarta nu actioneaza raman neschimbati
+            for out in range(2 ** k):
+                row = base
+                for i, s in enumerate(shifts):
+                    row |= ((out >> (k - 1 - i)) & 1) << s
+                full[row][col] = u[out][local]
         return Matrix(full)

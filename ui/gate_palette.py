@@ -41,6 +41,7 @@ PALETTE_GATES = [
     ("Y", "Pauli-Y", ROLE_SINGLE, "Rotatie de 180° in jurul axei Y."),
     ("Z", "Pauli-Z", ROLE_SINGLE, "Schimba semnul componentei |1⟩."),
     ("CX", "CNOT", ROLE_CONTROLLED, "Inverseaza qubitul tinta daca qubitul de control este |1⟩."),
+    ("CCX", "Toffoli", ROLE_CONTROLLED, "Inverseaza qubitul tinta daca ambii qubiti de control sunt |1⟩."),
     ("M", "Masurare", ROLE_MEASURE, "Masoara qubitul si obtine rezultatul 0 sau 1."),
 ]
 

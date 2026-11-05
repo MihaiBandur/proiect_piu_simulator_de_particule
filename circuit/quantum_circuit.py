@@ -9,6 +9,9 @@ from .gate import Gate
 MIN_QUBITS = 1
 MAX_QUBITS = 5
 DEFAULT_QUBITS = 3
+# pasii (coloanele) unui circuit sunt 0 .. MAX_COLUMNS - 1; limita opreste un fisier corupt
+# sa ceara o zona de circuit uriasa, iar orice circuit construit in aplicatie se poate salva si redeschide
+MAX_COLUMNS = 1000
 
 
 class QuantumCircuit:
@@ -33,10 +36,10 @@ class QuantumCircuit:
         return None
 
     def isValidGate(self, gate: Gate) -> bool:
-        """Poarta are cati qubiti cere tipul ei, distincti si existenti, pe o coloana nenegativa."""
+        """Poarta are cati qubiti cere tipul ei, distincti si existenti, pe o coloana din circuit."""
         n = len(self.qubits)
         return (
-            gate.column >= 0
+            0 <= gate.column < MAX_COLUMNS
             and len(gate.qubits) == gate.ARITY
             and len(set(gate.qubits)) == len(gate.qubits)
             and all(0 <= q < n for q in gate.qubits)

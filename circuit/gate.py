@@ -3,7 +3,7 @@
 import math
 from abc import ABC, abstractmethod
 from typing import List
-import numpy as np
+
 from simulation.matrix import Matrix
 
 class Gate(ABC):
@@ -14,7 +14,8 @@ class Gate(ABC):
     def __init__(self, qubits: List[int], column: int):
         self.name: str = self.NAME
         self.symbol: str = self.SYMBOL
-        self.qubits: List[int] = list(qubits)  # pentru CNOT: [control, tinta]
+        # pentru CNOT: [control, tinta]; pentru Toffoli: [control1, control2, tinta]
+        self.qubits: List[int] = list(qubits)
         self.column: int = column
         self.matrix: Matrix = self._createMatrix()
 
@@ -67,14 +68,12 @@ class ToffoliGate(Gate):
     # not the smartest way to do it, but we roll with it --> over big subspaces number of op will be n^3,
     # whereas on a NORMAL implementation it would be n^2 duck my life -- same for the CNOT ffs
     def _createMatrix(self):
-        m = np.eye(8, dtype=int)
+        # ordinea bazei: |control1, control2, tinta>; tinta se inverseaza doar cand ambele controale sunt 1,
+        # deci identitatea 8x8 cu randurile |110> (6) si |111> (7) schimbate intre ele
+        rows = Matrix.identity(8).values
+        rows[6], rows[7] = rows[7], rows[6]
+        return Matrix(rows)
 
-        m[6, 6] = 0
-        m[7, 7] = 0
-        m[6, 7] = 1
-        m[7, 6] = 1
-
-        return Matrix(m)
 
 class MeasureGate(Gate):
     NAME, SYMBOL = "Masurare", "M"
@@ -88,4 +87,8 @@ class MeasureGate(Gate):
         return [Matrix([[1, 0], [0, 0]]), Matrix([[0, 0], [0, 1]])]
 
 
-GATE_TYPES = {"H": HGate, "X": XGate, "Y": YGate, "Z": ZGate, "CX": CNOTGate, "M": MeasureGate}
+GATE_TYPES = {
+    "H": HGate, "X": XGate, "Y": YGate, "Z": ZGate,
+    "CX": CNOTGate, "CCX": ToffoliGate,
+    "M": MeasureGate,
+}
