@@ -3,7 +3,7 @@
 import math
 from abc import ABC, abstractmethod
 from typing import List
-
+import numpy as np
 from simulation.matrix import Matrix
 
 class Gate(ABC):
@@ -62,6 +62,19 @@ class CNOTGate(Gate):
         # ordinea bazei: |control, tinta>
         return Matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
 
+class ToffoliGate(Gate):
+    NAME, SYMBOL, ARITY = "Toffoli", "CCX", 3
+    # not the smartest way to do it, but we roll with it --> over big subspaces number of op will be n^3,
+    # whereas on a NORMAL implementation it would be n^2 duck my life -- same for the CNOT ffs
+    def _createMatrix(self):
+        m = np.eye(8, dtype=int)
+
+        m[6, 6] = 0
+        m[7, 7] = 0
+        m[6, 7] = 1
+        m[7, 6] = 1
+
+        return Matrix(m)
 
 class MeasureGate(Gate):
     NAME, SYMBOL = "Masurare", "M"
