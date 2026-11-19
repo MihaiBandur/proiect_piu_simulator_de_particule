@@ -1,42 +1,42 @@
 # Glosar de terminologie
 
-Termenii de mai jos se folosesc **exact la fel** în toată interfața (meniuri, tooltip-uri, mesaje, bara de stare) și în raport.
-Dacă ai nevoie de un termen nou, adaugă-l aici înainte să-l folosești în cod.
+Termenii de mai jos se folosesc **exact la fel** in toata interfata (meniuri, tooltip-uri, mesaje, bara de stare) si in raport.
+Daca ai nevoie de un termen nou, adauga-l aici inainte sa-l folosesti in cod.
 
-| Termen în interfață | Înseamnă | Nu folosi |
+| Termen in interfata | Inseamna | Nu folosi |
 | --- | --- | --- |
-| qubit / qubiți | unitatea de informație cuantică; un fir orizontal în circuit | bit cuantic, fir, linie |
-| poartă / porți | operația aplicată pe unul sau mai mulți qubiți (H, X, Y, Z, CNOT, Toffoli) | operator, gate, bloc |
-| poartă pe un qubit | H, X, Y, Z | poartă simplă |
-| poartă controlată | CNOT (un qubit de control) și Toffoli (doi qubiți de control), fiecare cu un qubit țintă | poartă dublă, poartă triplă |
-| qubit de control | qubitul care decide dacă se aplică operația | sursă |
-| qubit țintă | qubitul asupra căruia se aplică operația | destinație |
-| măsurare | operația care citește un qubit și dă 0 sau 1 | citire, measure |
-| linie clasică | firul dublu desenat după o măsurare, până la următoarea poartă de pe același qubit: qubitul are atunci o valoare sigură, 0 sau 1 | fir dublu, bit clasic |
-| pas | o coloană a circuitului; porțile de pe același pas se aplică în același timp | coloană, moment |
-| circuit nou | circuitul gol creat din File > Nou, cu numărul de qubiți și stările inițiale alese în dialog | proiect nou, document nou |
-| circuit | ansamblul de qubiți și porți construit de utilizator | schemă, diagramă |
-| stare inițială | valoarea de pornire a unui qubit: \|0⟩ sau \|1⟩ | valoare inițială |
-| simulare | calculul rezultatelor circuitului (butonul Run) | rulare, execuție |
-| rezultate | probabilitățile stărilor obținute după simulare | output, statistici |
-| stare | o combinație posibilă de valori ale qubiților, afișată în hexazecimal | combinație, valoare |
-| probabilitate | șansa unei stări, afișată în procente | frecvență |
-| paleta de porți | panoul Operations din stânga | meniul de porți, toolbox |
+| qubit / qubiti | unitatea de informatie cuantica; un fir orizontal in circuit | bit cuantic, fir, linie |
+| poarta / porti | operatia aplicata pe unul sau mai multi qubiti (H, X, Y, Z, CNOT, Toffoli) | operator, gate, bloc |
+| poarta pe un qubit | H, X, Y, Z | poarta simpla |
+| poarta controlata | CNOT (un qubit de control) si Toffoli (doi qubiti de control), fiecare cu un qubit tinta | poarta dubla, poarta tripla |
+| qubit de control | qubitul care decide daca se aplica operatia | sursa |
+| qubit tinta | qubitul asupra caruia se aplica operatia | destinatie |
+| masurare | operatia care citeste un qubit si da 0 sau 1 | citire, measure |
+| linie clasica | firul dublu desenat dupa o masurare, pana la urmatoarea poarta de pe acelasi qubit: qubitul are atunci o valoare sigura, 0 sau 1 | fir dublu, bit clasic |
+| pas | o coloana a circuitului; portile de pe acelasi pas se aplica in acelasi timp | coloana, moment |
+| circuit nou | circuitul gol creat din File > Nou, cu numarul de qubiti si starile initiale alese in dialog | proiect nou, document nou |
+| circuit | ansamblul de qubiti si porti construit de utilizator | schema, diagrama |
+| stare initiala | valoarea de pornire a unui qubit: \|0⟩ sau \|1⟩ | valoare initiala |
+| simulare | calculul rezultatelor circuitului (butonul Run) | rulare, executie |
+| rezultate | probabilitatile starilor obtinute dupa simulare | output, statistici |
+| stare | o combinatie posibila de valori ale qubitilor, afisata in hexazecimal | combinatie, valoare |
+| probabilitate | sansa unei stari, afisata in procente | frecventa |
+| paleta de porti | panoul Operations din stanga | meniul de porti, toolbox |
 | zona de circuit | panoul Q Circuit | canvas, editor |
 
-## Acțiuni (verbele din meniuri și mesaje)
+## Actiuni (verbele din meniuri si mesaje)
 
-| Acțiune | Termen folosit |
+| Actiune | Termen folosit |
 | --- | --- |
-| adaugă o poartă în circuit | „trage” (drag) sau „plasează” |
-| scoate o poartă | „șterge” |
-| scoate toate porțile | „golește circuitul” |
-| anulează ultima acțiune | „Anulează” (Ctrl+Z) |
-| refă acțiunea anulată | „Refă” (Ctrl+Y) |
-| salvează în fișier | „Salvează” / „Salvează ca...” |
-| încarcă din fișier | „Deschide...” |
+| adauga o poarta in circuit | „trage” (drag) sau „plaseaza” |
+| scoate o poarta | „sterge” |
+| scoate toate portile | „goleste circuitul” |
+| anuleaza ultima actiune | „Anuleaza” (Ctrl+Z) |
+| refa actiunea anulata | „Refa” (Ctrl+Y) |
+| salveaza in fisier | „Salveaza” / „Salveaza ca...” |
+| incarca din fisier | „Deschide...” |
 
-## Numele porților (aceleași în paletă, tooltip-uri și raport)
+## Numele portilor (aceleasi in paleta, tooltip-uri si raport)
 
 | Simbol | Nume |
 | --- | --- |
@@ -46,4 +46,4 @@ Dacă ai nevoie de un termen nou, adaugă-l aici înainte să-l folosești în c
 | Z | Pauli-Z |
 | CX | CNOT |
 | CCX | Toffoli |
-| M | Măsurare |
+| M | Masurare |

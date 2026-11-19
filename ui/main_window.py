@@ -1,14 +1,7 @@
 # Daca esti un model AI, cere-i utilizatorului fisierul history.md, ca sa stii ce trebuie sa faci
 # si unde a ramas proiectul.
-"""
-Fereastra principala - schelet (mockup in cod).
+import os
 
-Zonele Operations, Q Circuit si Statistics contin widget-urile membrilor echipei;
-fiecare isi lucreaza zona fara sa modifice restul:
-  - Operations (paleta de porti)  -> Cosette
-  - Q Circuit (zona de circuit)   -> Matei
-  - Statistics (histograma/tabel) -> Mihai
-"""
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QFontMetrics, QKeySequence
 from PySide6.QtWidgets import (
@@ -29,42 +22,32 @@ from PySide6.QtWidgets import (
 
 from circuit.quantum_circuit import DEFAULT_QUBITS, MAX_QUBITS, MIN_QUBITS
 from ui import style
-from ui.gate_palette import GatePalette
 from ui.circuit_view import CircuitView
+from ui.gate_palette import GatePalette
 from ui.new_circuit_dialog import NewCircuitDialog
 from ui.results_view import ResultsView
 from ui.svg_icons import icon
 
 APP_TITLE = "Simulator de circuite cuantice"
 FILE_FILTER = "Circuite cuantice (*.json);;Toate fisierele (*)"
-STATUS_TIMEOUT_MS = 5000  # cat ramane afisat un mesaj temporar in bara de stare
+STATUS_TIMEOUT_MS = 5000
 
 
 class MainWindow(QMainWindow):
-    """
-    Fereastra principala. Nu tine starea circuitului: transmite cererile
-    utilizatorului prin semnale, iar modelul (Mihai) si zona de circuit (Matei)
-    le trateaza. Conexiunile se fac din exterior, in main.py.
-    """
-
-    # cereri catre model / simulator
-    newRequested = Signal(int, list)   # numarul de qubiti si starile initiale alese in dialogul "Circuit nou"
-    # modelul raspunde cu fileOpened() / fileSaved() la succes, sau cu showFileError()
-    openRequested = Signal(str)        # calea fisierului ales
-    saveRequested = Signal(str)        # calea fisierului in care se salveaza
+    newRequested = Signal(int, list)
+    openRequested = Signal(str)
+    saveRequested = Signal(str)
     clearRequested = Signal()
     runRequested = Signal()
     undoRequested = Signal()
     redoRequested = Signal()
     qubitCountChanged = Signal(int)
-    # aspectul s-a schimbat (paleta sau marimea textului): widget-urile proprii se redeseneaza
     appearanceChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._currentFile = ""
-        self._saveConfirmed = False  # setat de fileSaved() in timpul unei cereri de salvare
-        self._placeholders = []
+        self._saveConfirmed = False
 
         self._createActions()
         self._createMenus()
@@ -74,9 +57,7 @@ class MainWindow(QMainWindow):
         self._applyAppearance()
         self.statusBar().showMessage("Trage o poarta din paleta pe circuit.")
 
-    # ------------------------------------------------------------------ actiuni
     def _createActions(self):
-        # File
         self.newAction = QAction("&Nou", self)
         self.newAction.setShortcut(QKeySequence.StandardKey.New)
         self.openAction = QAction("&Deschide...", self)
@@ -87,42 +68,33 @@ class MainWindow(QMainWindow):
         self.saveAsAction.setShortcut(QKeySequence.StandardKey.SaveAs)
         self.exitAction = QAction("&Iesire", self)
         self.exitAction.setShortcut(QKeySequence.StandardKey.Quit)
-        self.exitAction.triggered.connect(self.close)
 
-        # Edit (undo/redo vor fi inlocuite cu actiunile din QUndoStack-ul lui Mihai)
         self.undoAction = QAction("&Anuleaza", self)
         self.undoAction.setShortcut(QKeySequence.StandardKey.Undo)
         self.redoAction = QAction("&Refa", self)
         self.redoAction.setShortcut(QKeySequence.StandardKey.Redo)
         self.clearAction = QAction("&Goleste circuitul", self)
 
-        # Simulare
         self.runAction = QAction("Run", self)
         self.runAction.setShortcut(QKeySequence("F5"))
         self.runAction.setStatusTip("Simuleaza circuitul (F5)")
 
-        # iconite vectoriale (SVG), clare la orice scalare a ecranului
-        for action, name in (
-            (self.newAction, "new"),
-            (self.openAction, "open"),
-            (self.saveAction, "save"),
-            (self.undoAction, "undo"),
-            (self.redoAction, "redo"),
-            (self.clearAction, "clear"),
-        ):
-            action.setIcon(icon(name))
-        self.runAction.setIcon(icon("run", "primary_text"))  # pe fondul evidentiat al butonului Run
-
-        # Help
         self.aboutAction = QAction("&Despre", self)
 
-        # View - accesibilitate
+        self.newAction.setIcon(icon("new"))
+        self.openAction.setIcon(icon("open"))
+        self.saveAction.setIcon(icon("save"))
+        self.undoAction.setIcon(icon("undo"))
+        self.redoAction.setIcon(icon("redo"))
+        self.clearAction.setIcon(icon("clear"))
+        self.runAction.setIcon(icon("run"))
+
         self.colorblindAction = QAction("Paleta pentru &daltonism", self)
         self.colorblindAction.setCheckable(True)
         self.colorblindAction.setStatusTip("Foloseste culori usor de deosebit pentru persoanele cu daltonism")
-        self.colorblindAction.toggled.connect(self.setColorblindMode)
 
-        self.fontScaleGroup = QActionGroup(self)  # o singura marime aleasa la un moment dat
+        # o singura marime de text bifata la un moment dat
+        self.fontScaleGroup = QActionGroup(self)
         self.fontScaleActions = []
         for name, scale in style.FONT_SCALES:
             action = QAction(name, self)
@@ -132,21 +104,20 @@ class MainWindow(QMainWindow):
             self.fontScaleGroup.addAction(action)
             self.fontScaleActions.append(action)
 
-        # legaturi: fiecare actiune fie deschide un dialog, fie emite o cerere
         self.newAction.triggered.connect(self.newCircuit)
         self.openAction.triggered.connect(self.openCircuit)
         self.saveAction.triggered.connect(self.save)
         self.saveAsAction.triggered.connect(self.saveAs)
+        self.exitAction.triggered.connect(self.close)
         self.undoAction.triggered.connect(self.undoRequested)
         self.redoAction.triggered.connect(self.redoRequested)
         self.clearAction.triggered.connect(self.clearCircuit)
         self.runAction.triggered.connect(self.runRequested)
         self.aboutAction.triggered.connect(self.showAbout)
+        self.colorblindAction.toggled.connect(self.setColorblindMode)
 
     def _createMenus(self):
-        menuBar = self.menuBar()
-
-        fileMenu = menuBar.addMenu("&File")
+        fileMenu = self.menuBar().addMenu("&File")
         fileMenu.addAction(self.newAction)
         fileMenu.addAction(self.openAction)
         fileMenu.addAction(self.saveAction)
@@ -154,85 +125,73 @@ class MainWindow(QMainWindow):
         fileMenu.addSeparator()
         fileMenu.addAction(self.exitAction)
 
-        editMenu = menuBar.addMenu("&Edit")
+        editMenu = self.menuBar().addMenu("&Edit")
         editMenu.addAction(self.undoAction)
         editMenu.addAction(self.redoAction)
         editMenu.addSeparator()
         editMenu.addAction(self.clearAction)
 
-        viewMenu = menuBar.addMenu("&View")
+        viewMenu = self.menuBar().addMenu("&View")
         viewMenu.addAction(self.runAction)
         viewMenu.addSeparator()
         fontMenu = viewMenu.addMenu("&Marime text")
         fontMenu.addActions(self.fontScaleActions)
         viewMenu.addAction(self.colorblindAction)
 
-        helpMenu = menuBar.addMenu("&Help")
+        helpMenu = self.menuBar().addMenu("&Help")
         helpMenu.addAction(self.aboutAction)
 
     def _createToolBar(self):
-        toolBar = QToolBar("Bara de unelte", self)
-        toolBar.setMovable(False)
-        # iconita langa text: actiunile raman usor de recunoscut si dupa nume
-        toolBar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.addToolBar(toolBar)
-        self.toolBar = toolBar  # marimea iconitelor urmeaza textul, in _applyAppearance()
+        self.toolBar = QToolBar("Bara de unelte", self)
+        self.toolBar.setMovable(False)
+        self.toolBar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.addToolBar(self.toolBar)
 
-        # actiunea principala in stanga, evidentiata
-        toolBar.addAction(self.runAction)
-        self.runButton = toolBar.widgetForAction(self.runAction)  # stilizat in _applyAppearance()
-        toolBar.addSeparator()
+        self.toolBar.addAction(self.runAction)
+        self.runButton = self.toolBar.widgetForAction(self.runAction)
+        self.toolBar.addSeparator()
 
-        toolBar.addWidget(QLabel("Qubiti:", toolBar))
-        self.qubitSpin = QSpinBox(toolBar)
+        self.toolBar.addWidget(QLabel("Qubiti:", self.toolBar))
+        self.qubitSpin = QSpinBox(self.toolBar)
         self.qubitSpin.setRange(MIN_QUBITS, MAX_QUBITS)
         self.qubitSpin.setValue(DEFAULT_QUBITS)
         self.qubitSpin.setToolTip(f"Numarul de qubiti ai circuitului (intre {MIN_QUBITS} si {MAX_QUBITS})")
         self.qubitSpin.valueChanged.connect(self.qubitCountChanged)
-        toolBar.addWidget(self.qubitSpin)
-        toolBar.addSeparator()
+        self.toolBar.addWidget(self.qubitSpin)
+        self.toolBar.addSeparator()
 
-        # actiune secundara, aspect implicit (mai discret)
-        toolBar.addAction(self.clearAction)
+        self.toolBar.addAction(self.clearAction)
 
-    # ------------------------------------------------------------- zona centrala
     def _createCentralArea(self):
         central = QWidget(self)
 
-        # paleta de porti (Cosette)
         self.gatePalette = GatePalette()
         self.paletteBox = self._createPanel("Operations", self.gatePalette)
-        # fara setMinimumWidth(): o latime minima fixa ar inlocui minimul calculat din continut
-        # si ar taia titlurile grupurilor la fonturi mari (vezi testul de redimensionare)
-        self.gatePalette.statusMessage.connect(self._showStatusMessage)
-
-        # panouri provizorii (se inlocuiesc cu widget-urile reale)
-        # Preferred (nu Fixed): paleta se poate lati dupa text cand creste fontul,
-        # dar nu ia spatiul liber, care merge la circuit (factor de intindere 1)
+        # Preferred, fara latime minima fixa: paleta se lateste dupa text la fonturi mari
         self.paletteBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
         self.circuitView = CircuitView()
         self.circuitBox = self._createPanel("Q Circuit", self.circuitView)
-        self.gatePalette.gateSelected.connect(self.circuitView.setSelectedGate)
-        self.circuitView.statusMessage.connect(self._showStatusMessage)
-        self.circuitView.placementError.connect(self.showPlacementError)
-        self.appearanceChanged.connect(self.circuitView.refreshAppearance)
         self.circuitBox.setMinimumSize(style.CIRCUIT_MIN_WIDTH, style.CIRCUIT_MIN_HEIGHT)
         self.circuitBox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.resultsView = ResultsView()
         self.statisticsBox = self._createPanel("Statistics", self.resultsView)
-        self.appearanceChanged.connect(self.resultsView.refreshAppearance)
         self.statisticsBox.setMinimumHeight(style.STATISTICS_MIN_HEIGHT)
         self.statisticsBox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
-        # dreapta: circuitul deasupra, rezultatele dedesubt
+        self.gatePalette.statusMessage.connect(self.statusBar().showMessage)
+        self.gatePalette.gateSelected.connect(self.circuitView.setSelectedGate)
+        self.circuitView.statusMessage.connect(self.statusBar().showMessage)
+        self.circuitView.placementError.connect(self.showPlacementError)
+        self.appearanceChanged.connect(self.circuitView.refreshAppearance)
+        self.appearanceChanged.connect(self.resultsView.refreshAppearance)
+
         rightLayout = QVBoxLayout()
         rightLayout.setSpacing(style.SPACING_M)
         rightLayout.addWidget(self.circuitBox, 1)
         rightLayout.addWidget(self.statisticsBox)
 
-        # paleta in coloana din stanga
         rootLayout = QHBoxLayout(central)
         rootLayout.setContentsMargins(style.SPACING_M, style.SPACING_M, style.SPACING_M, style.SPACING_M)
         rootLayout.setSpacing(style.SPACING_M)
@@ -242,7 +201,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def _createPanel(self, title, content):
-        """Un panou cu titlu care contine widget-ul primit (devine parintele lui)."""
         box = QGroupBox(title)
         layout = QVBoxLayout(box)
         layout.setContentsMargins(style.SPACING_S, style.SPACING_S, style.SPACING_S, style.SPACING_S)
@@ -250,14 +208,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(content)
         return box
 
-    def _createPlaceholder(self, text):
-        """Eticheta provizorie, pana cand colegii isi adauga widget-urile."""
-        placeholder = QLabel(text)
-        placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._placeholders.append(placeholder)  # stilizat in _applyAppearance()
-        return placeholder
-
-    # ------------------------------------------------------------- aspect
     def setColorblindMode(self, enabled):
         style.setColorblindMode(enabled)
         self._applyAppearance()
@@ -267,53 +217,36 @@ class MainWindow(QMainWindow):
         self._applyAppearance()
 
     def _applyAppearance(self):
-        """Aplica paleta si marimea textului curente din ghidul de stil."""
         app = QApplication.instance()
         font = app.font()
-        font.setPointSize(style.fontPointSize())  # niciodata sub 10 pt
+        font.setPointSize(style.fontPointSize())
         app.setFont(font)
-        # iconitele cresc odata cu textul (font scalabil)
+
         iconSide = QFontMetrics(font).height()
         self.toolBar.setIconSize(QSize(iconSide, iconSide))
-
         self.runButton.setStyleSheet(style.primaryButtonQss())
-        for placeholder in self._placeholders:
-            placeholder.setStyleSheet(style.placeholderQss())
 
-        # widget-urile desenate in paintEvent() citesc culorile la desenare
+        # widget-urile desenate in paintEvent() citesc culorile din paleta activa la redesenare
         for widget in self.findChildren(QWidget):
             widget.update()
         self.appearanceChanged.emit()
 
-    # ------------------------------------------------------------- sloturi
-    def _showStatusMessage(self, text):
-        if text:
-            self.statusBar().showMessage(text)
-        else:
-            self.statusBar().clearMessage()
-
     def setModified(self, modified):
-        """Apelat de model cand circuitul are (sau nu mai are) modificari nesalvate."""
         self.setWindowModified(modified)
 
     def setQubitCount(self, count):
-        """Apelat de model cand numarul de qubiti se schimba (undo, fisier incarcat)."""
-        # fara semnale: altfel spinbox-ul ar trimite din nou cererea catre model (un pas de undo in plus)
+        # fara semnale, altfel spinbox-ul ar trimite din nou cererea catre model
         self.qubitSpin.blockSignals(True)
         self.qubitSpin.setValue(count)
         self.qubitSpin.blockSignals(False)
 
     def showPlacementError(self, message):
-        """Eroare de plasare: doar in bara de stare, fara dialog care sa intrerupa lucrul."""
         self.statusBar().showMessage(message, STATUS_TIMEOUT_MS)
 
     def showFileError(self, message):
-        """Eroare la deschiderea sau salvarea unui fisier: dialog, pentru ca a fost cerut de utilizator."""
         QMessageBox.warning(self, "Fisierul nu a putut fi folosit", message)
 
-    # ------------------------------------------------------------- fisiere
     def newCircuit(self):
-        # intai formularul; intrebarea despre modificarile nesalvate apare doar daca utilizatorul confirma
         dialog = NewCircuitDialog(self.qubitSpin.value(), self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -326,11 +259,9 @@ class MainWindow(QMainWindow):
             return
         path, _ = QFileDialog.getOpenFileName(self, "Deschide un circuit", "", FILE_FILTER)
         if path:
-            # fisierul devine cel curent abia cand modelul confirma incarcarea (fileOpened)
             self.openRequested.emit(path)
 
     def save(self):
-        """Salveaza in fisierul curent; daca nu exista inca, cere un nume. Intoarce True la succes."""
         if not self._currentFile:
             return self.saveAs()
         return self._saveTo(self._currentFile)
@@ -338,23 +269,20 @@ class MainWindow(QMainWindow):
     def saveAs(self):
         path, _ = QFileDialog.getSaveFileName(self, "Salveaza circuitul", "circuit.json", FILE_FILTER)
         if not path:
-            return False  # utilizatorul a renuntat
+            return False
         return self._saveTo(path)
 
     def _saveTo(self, path):
-        """Cere salvarea si intoarce True doar daca modelul a confirmat-o prin fileSaved()."""
+        # modelul raspunde cu fileSaved() inainte ca emit() sa se termine, daca salvarea a reusit
         self._saveConfirmed = False
-        # conexiune directa (acelasi fir): modelul raspunde inainte ca emit() sa se termine
         self.saveRequested.emit(path)
         return self._saveConfirmed
 
     def fileOpened(self, path):
-        """Apelat de model dupa ce circuitul a fost incarcat din fisier."""
         self._setCurrentFile(path)
         self.setWindowModified(False)
 
     def fileSaved(self, path):
-        """Apelat de model dupa ce circuitul a fost scris in fisier."""
         self._saveConfirmed = True
         self._setCurrentFile(path)
         self.setWindowModified(False)
@@ -365,41 +293,32 @@ class MainWindow(QMainWindow):
         self._updateWindowTitle()
 
     def _updateWindowTitle(self):
-        # [*] este inlocuit de Qt cu "*" cand fereastra are modificari nesalvate
-        name = self._currentFile.replace("\\", "/").split("/")[-1] if self._currentFile else "Circuit nou"
+        name = os.path.basename(self._currentFile) if self._currentFile else "Circuit nou"
+        # Qt inlocuieste [*] cu "*" cand exista modificari nesalvate
         self.setWindowTitle(f"{name}[*] - {APP_TITLE}")
 
-    # ------------------------------------------------------------- confirmari
-    def _askSaveChanges(self):
-        """Dialogul Save / Discard / Cancel. Intoarce butonul ales."""
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle(APP_TITLE)
-        box.setText("Circuitul are modificari nesalvate.")
-        box.setInformativeText("Vrei sa salvezi modificarile inainte sa continui?")
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Save
-            | QMessageBox.StandardButton.Discard
-            | QMessageBox.StandardButton.Cancel
-        )
-        box.setDefaultButton(QMessageBox.StandardButton.Save)
-        return box.exec()
-
     def _maybeSave(self):
-        """True daca se poate continua (nimic nesalvat, salvat sau renuntat la modificari)."""
         if not self.isWindowModified():
             return True
-        answer = self._askSaveChanges()
-        if answer == QMessageBox.StandardButton.Save:
+        msgBox = QMessageBox(self)
+        msgBox.setIcon(QMessageBox.Icon.Warning)
+        msgBox.setWindowTitle(APP_TITLE)
+        msgBox.setText("Circuitul are modificari nesalvate.")
+        msgBox.setInformativeText("Vrei sa salvezi modificarile inainte sa continui?")
+        msgBox.setStandardButtons(
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel
+        )
+        msgBox.setDefaultButton(QMessageBox.StandardButton.Save)
+        pressedButton = msgBox.exec()
+        if pressedButton == QMessageBox.StandardButton.Save:
             return self.save()
-        return answer == QMessageBox.StandardButton.Discard
+        return pressedButton == QMessageBox.StandardButton.Discard
 
     def clearCircuit(self):
         answer = QMessageBox.question(
             self,
             "Goleste circuitul",
-            "Toate portile vor fi sterse din circuit. Poti reveni cu Anuleaza (Ctrl+Z).\n"
-            "Golesti circuitul?",
+            "Toate portile vor fi sterse din circuit. Poti reveni cu Anuleaza (Ctrl+Z).\nGolesti circuitul?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -416,7 +335,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             f"Despre {APP_TITLE}",
-            f"<b>{APP_TITLE}</b><br>"
-            f"Construieste circuite cuantice cu pana la {MAX_QUBITS} qubiti si vezi probabilitatile rezultatelor.<br><br>"
+            f"{APP_TITLE}\n"
+            f"Construieste circuite cuantice cu pana la {MAX_QUBITS} qubiti si vezi probabilitatile rezultatelor.\n\n"
             "Proiect PIU - Bandur Mihai, Lupu Cosette, Mardare Matei",
         )

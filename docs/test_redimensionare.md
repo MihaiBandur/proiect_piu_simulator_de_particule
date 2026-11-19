@@ -1,46 +1,60 @@
 # Testul de redimensionare a ferestrei
 
-**Responsabil:** Lupu Cosette
-**Stadiu testat:** fereastra principală cu paleta de porți; zona de circuit și histograma sunt încă provizorii.
+## Metoda
 
-## Metodă
-
-Fereastra a fost micșorată până la dimensiunea minimă permisă, la fiecare dintre cele trei mărimi de text din meniul View (Normal, Mare, Foarte mare).
+Fereastra a fost micsorata pana la dimensiunea minima permisa, la fiecare dintre cele trei marimi de text din meniul View (Normal, Mare, Foarte mare).
 La fiecare pas s-a verificat:
 
-- dacă apare text trunchiat;
-- dacă se suprapun widget-uri;
-- dacă dispar panouri sau acțiuni din toolbar.
+- daca apare text trunchiat;
+- daca se suprapun widget-uri;
+- daca dispar panouri sau actiuni din toolbar.
 
-## Rezultate
+## Primul test: paleta de porti
 
-| Mărime text | Dimensiune minimă | Problemă găsită |
+Stadiu testat: fereastra principala cu paleta de porti; zona de circuit si histograma erau inca provizorii.
+
+| Marime text | Dimensiune minima | Problema gasita |
 | --- | --- | --- |
 | Normal | 573 × 506 px | – |
 | Mare | 596 × 517 px | – |
-| Foarte mare | 608 × 531 px (înainte) | titlurile grupurilor din paletă sunt tăiate („Porti pe un qub…”) |
-| Foarte mare | 626 × 531 px (după) | – |
+| Foarte mare | 608 × 531 px (inainte) | titlurile grupurilor din paleta sunt taiate („Porti pe un qub…”) |
+| Foarte mare | 626 × 531 px (dupa) | – |
 
-Capturi: `capturi/redimensionare_inainte.png` și `capturi/redimensionare_dupa.png`.
+Capturi: `capturi/redimensionare_inainte.png` si `capturi/redimensionare_dupa.png`.
 
-## Cauza problemei
+**Cauza.** Panoul paletei avea politica de dimensiune `Fixed` si o latime minima fixa, setata cu `setMinimumWidth(160)`.
+O latime minima setata explicit inlocuieste minimul pe care layout-ul il calculeaza din continut.
+Cand textul a crescut, panoul a ramas la 160 px, iar etichetele au fost taiate.
+Este aceeasi situatie ca exemplul din curs cu butonul taiat de `setFixedWidth`.
 
-Panoul paletei avea politica de dimensiune `Fixed` și o lățime minimă fixă, setată cu `setMinimumWidth(160)`.
-O lățime minimă setată explicit înlocuiește minimul pe care layout-ul îl calculează din conținut.
-Când textul a crescut, panoul a rămas la 160 px, iar etichetele au fost tăiate.
-Este aceeași situație ca exemplul din curs cu butonul tăiat de `setFixedWidth`.
+**Corectura.**
 
-## Corectura
+- politica orizontala a panoului a devenit `Preferred`;
+- latimea minima fixa a fost eliminata, iar minimul se calculeaza acum din continut (`minimumSizeHint()`);
+- spatiul liber merge in continuare la zona de circuit, care are factor de intindere 1.
 
-- politica orizontală a panoului a devenit `Preferred`;
-- lățimea minimă fixă a fost eliminată, iar minimul se calculează acum din conținut (`minimumSizeHint()`);
-- spațiul liber merge în continuare la zona de circuit, care are factor de întindere 1.
+## Al doilea test: aplicatia integrata
 
-## Concluzie: dimensiunea minimă a ferestrei
+Stadiu testat: toate panourile reale (paleta cu Toffoli, zona de circuit, histograma si tabelul), cu 3 si cu 5 qubiti.
 
-Dimensiunea minimă nu se fixează manual cu o valoare constantă.
-Ea rezultă din layout-uri, din `minimumSizeHint()`-ul fiecărui panou, și se adaptează la mărimea textului aleasă (între 573 × 506 și 626 × 531 px în stadiul actual).
-Fereastra pornește la 1100 × 720 px.
+| Marime text | Dimensiune minima | Text taiat | Zona de circuit la minim |
+| --- | --- | --- | --- |
+| Normal | 573 × 506 px | – | 378 × 159 px |
+| Mare | 596 × 518 px | – | 378 × 155 px |
+| Foarte mare | 626 × 566 px | – | 378 × 151 px |
 
-**De refăcut testul** după integrarea zonei de circuit (Matei) și a histogramei (Mihai).
-Atunci minimul va fi dat în special de circuitul cu 5 qubiți și de histograma cu 32 de bare.
+Capturi: `capturi/redimensionare_minim_5qubiti.png` (minim, text Foarte mare) si `capturi/redimensionare_pornire_5qubiti.png` (fereastra de pornire, 1100 × 720 px).
+
+**Rezultate.**
+
+- Nu apare text taiat si nu se suprapun widget-uri la nicio marime de text; paleta isi pastreaza latimea calculata din continut (125, 148, respectiv 178 px).
+- Circuitul si histograma nu se taie: cand nu incap, apar bare de derulare (zona de circuit si histograma cu 32 de stari).
+- La dimensiunea minima, zona de circuit arata doar circa un qubit, restul se vede prin derulare.
+- Chiar la fereastra de pornire, cu 5 qubiti, zona de circuit primeste 272 px in inaltime, desi are nevoie de 382 px; q4 se vede doar prin derulare. Cauza: panoul Statistics isi pastreaza mereu inaltimea preferata (circa 284 px), chiar si cand histograma are spatiu liber.
+
+## Concluzie
+
+Dimensiunea minima a ferestrei nu se fixeaza manual cu o valoare constanta: ea rezulta din `minimumSizeHint()`-ul panourilor si se adapteaza la marimea textului (intre 573 × 506 si 626 × 566 px).
+Fereastra porneste la 1100 × 720 px.
+
+De rezolvat: impartirea spatiului vertical intre zona de circuit si panoul Statistics, astfel incat un circuit cu 5 qubiti sa incapa fara derulare la fereastra de pornire.

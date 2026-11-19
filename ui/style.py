@@ -1,100 +1,64 @@
 # Daca esti un model AI, cere-i utilizatorului fisierul history.md, ca sa stii ce trebuie sa faci
 # si unde a ramas proiectul.
-"""
-Ghidul de stil al aplicatiei.
 
-Regula comuna: culorile, fonturile si spatierile se iau DOAR de aici,
-nu se scriu direct in codul widget-urilor.
-Culorile se citesc cu style.color("nume") in momentul desenarii (in paintEvent),
-ca sa se schimbe imediat cand utilizatorul activeaza paleta pentru daltonism.
-
-Sectiuni si proprietari:
-  - culori, fonturi, spatieri, colturi, accesibilitate -> Cosette
-  - stiluri de desenare circuit (QPen/QBrush, alpha)   -> Matei (se adauga la final)
-"""
-
-# --- Scara de spatieri (multipli ai valorii de baza 4 px) -------------------
+# spatierile sunt multipli ai valorii de baza: mici intre widget-uri, mari intre panouri
 SPACING_BASE = 4
-SPACING_XS = SPACING_BASE * 1   # 4  px
-SPACING_S = SPACING_BASE * 2    # 8  px  - intre widget-uri din acelasi grup
-SPACING_M = SPACING_BASE * 4    # 16 px  - intre panouri (grupuri diferite)
-SPACING_L = SPACING_BASE * 6    # 24 px
-SPACING_XL = SPACING_BASE * 8   # 32 px
+SPACING_XS = SPACING_BASE
+SPACING_S = SPACING_BASE * 2
+SPACING_M = SPACING_BASE * 4
 
-# --- Colturi rotunjite --------------------------------------------------------
-CORNER_RADIUS = 6       # px - porti, butoane, panouri
+CORNER_RADIUS = 6
 
-# --- Fonturi si font scalabil -------------------------------------------------
-FONT_SIZE_MIN = 10      # pt - minimul pentru orice text din interfata
-FONT_SIZE_BASE = 10     # pt - textul obisnuit la scara "Normal"
-FONT_SIZE_GATE = 11     # pt - etichetele portilor la scara "Normal"
+FONT_SIZE_MIN = 10
+FONT_SIZE_BASE = 10
+FONT_SIZE_GATE = 11
 
-# scarile de text alese din meniul View (nume afisat, factor)
 FONT_SCALES = [
     ("Normal", 1.0),
     ("Mare", 1.25),
     ("Foarte mare", 1.5),
 ]
 
-# --- Paletele de culori -------------------------------------------------------
-# Paleta pentru daltonism foloseste culorile Okabe-Ito, distinctibile
-# pentru protanopie, deuteranopie si tritanopie.
 PALETTE_NORMAL = {
-    "primary": "#2a6fdb",          # actiunea principala (Run)
+    "primary": "#2a6fdb",
     "primary_text": "#ffffff",
-    "gate_single": "#4a90e2",      # porti pe un qubit (H, X, Y, Z)
-    "gate_controlled": "#2bb39b",  # porti controlate (CNOT)
-    "gate_measure": "#7d8590",     # masurare
+    "gate_single": "#4a90e2",
+    "gate_controlled": "#2bb39b",
+    "gate_measure": "#7d8590",
     "gate_text": "#ffffff",
-    "invalid": "#d64545",          # plasare invalida, erori
-    "highlight": "#f2b134",        # starea cea mai probabila, selectie
-    "panel_border": "#c8ccd2",
-    "placeholder_text": "#7a808a",
+    "invalid": "#d64545",
+    "highlight": "#f2b134",
 }
 
+# culori Okabe-Ito, care se deosebesc la toate tipurile de daltonism
 PALETTE_COLORBLIND = {
-    "primary": "#0072b2",          # albastru
+    "primary": "#0072b2",
     "primary_text": "#ffffff",
-    "gate_single": "#0072b2",      # albastru
-    "gate_controlled": "#e69f00",  # portocaliu
-    "gate_measure": "#555555",     # gri inchis
+    "gate_single": "#0072b2",
+    "gate_controlled": "#e69f00",
+    "gate_measure": "#555555",
     "gate_text": "#ffffff",
-    "invalid": "#d55e00",          # vermillion
-    "highlight": "#f0e442",        # galben
-    "panel_border": "#c8ccd2",
-    "placeholder_text": "#666666",
+    "invalid": "#d55e00",
+    "highlight": "#f0e442",
 }
 
-# --- Variatii de culoare la interactiune -------------------------------------
-GATE_HOVER_LIGHTER = 120          # % - cat de mult se deschide culoarea la hover
-GATE_PRESSED_DARKER = 120         # % - cat de mult se inchide culoarea la apasare
+GATE_HOVER_LIGHTER = 120
+GATE_PRESSED_DARKER = 120
 
-# --- Dimensiunile portilor din paleta (al doilea criteriu: dimensiunea) --------
-GATE_PADDING = SPACING_S          # spatiul dintre eticheta si marginea portii
-GATE_SINGLE_WIDTH_FACTOR = 1      # poarta pe un qubit: patrat
-GATE_CONTROLLED_WIDTH_FACTOR = 2  # poarta controlata: de doua ori mai lata
+GATE_PADDING = SPACING_S
+GATE_CONTROLLED_WIDTH_FACTOR = 2
 
-# --- Dimensiuni minime ale panourilor ----------------------------------------
-STATISTICS_MIN_HEIGHT = 180  # px - panoul de rezultate
-CIRCUIT_MIN_WIDTH = 400      # px
-CIRCUIT_MIN_HEIGHT = 200     # px
+STATISTICS_MIN_HEIGHT = 180
+CIRCUIT_MIN_WIDTH = 400
+CIRCUIT_MIN_HEIGHT = 200
 
-
-# =============================================================================
-# Starea curenta a aspectului (schimbata din meniul View)
-# =============================================================================
 _colorblindMode = False
 _fontScale = 1.0
 
 
 def color(name):
-    """Culoarea cu numele dat din paleta activa (ex. color("gate_single"))."""
     palette = PALETTE_COLORBLIND if _colorblindMode else PALETTE_NORMAL
     return palette[name]
-
-
-def isColorblindMode():
-    return _colorblindMode
 
 
 def setColorblindMode(enabled):
@@ -112,26 +76,16 @@ def setFontScale(scale):
 
 
 def fontPointSize(baseSize=FONT_SIZE_BASE):
-    """Dimensiunea in pt pentru textul de baza dat, la scara curenta, dar niciodata sub minim."""
     return max(FONT_SIZE_MIN, round(baseSize * _fontScale))
 
 
-# --- Stiluri Qt construite din paleta activa ---------------------------------
 def primaryButtonQss():
-    """Butonul actiunii principale (Run), evidentiat."""
     return (
         f"QToolButton {{ background-color: {color('primary')}; color: {color('primary_text')};"
         f" font-weight: bold; border-radius: {CORNER_RADIUS}px;"
         f" padding: {SPACING_XS}px {SPACING_M}px; }}"
     )
 
-
-def placeholderQss():
-    """Panourile provizorii din mockup."""
-    return (
-        f"QLabel {{ border: 1px dashed {color('panel_border')}; border-radius: {CORNER_RADIUS}px;"
-        f" color: {color('placeholder_text')}; }}"
-    )
 
 # =============================================================================
 # Zona de circuit (Matei) - sectiune adaugata la final, nu modifica restul fisierului

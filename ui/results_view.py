@@ -12,7 +12,7 @@ Intrari (sloturi):
   - clearResults()             -> rezultatele nu mai corespund circuitului
   - refreshAppearance()        -> la schimbarea paletei / marimii textului
 
-Starile se afiseaza in hexa; q0 este bitul cel mai semnificativ (ex. 3 qubiti: "110" -> 6).
+Starile se afiseaza in hexa; q0 este bitul cel mai putin semnificativ (ex. 3 qubiti: "011" -> 3).
 Vederea nu se comuta singura: utilizatorul alege histograma sau tabelul.
 """
 import math
@@ -40,7 +40,7 @@ EQUAL_TOLERANCE = 1e-9  # probabilitati egale pana la erorile de rotunjire
 
 
 def stateLabel(bits):
-    """Starea in hexa, cu atatea cifre cate cer qubitii (q0 este bitul cel mai semnificativ)."""
+    """Starea in hexa, cu atatea cifre cate cer qubitii (q0 este bitul cel mai putin semnificativ)."""
     digits = (len(bits) + 3) // 4
     return f"{int(bits, 2):0{digits}X}"
 
@@ -50,7 +50,7 @@ def rankResults(probabilities):
 
     Cand toate starile au aceeasi probabilitate, niciuna nu este evidentiata.
     """
-    states = sorted(probabilities.items())  # sirurile de biti au aceeasi lungime: ordinea starilor
+    states = sorted((bits[::-1], p) for bits, p in probabilities.items())
     if not states:
         return []
     best = max(p for _, p in states)
@@ -281,7 +281,7 @@ class ResultsView(QWidget):
     # ------------------------------------------------------------- tabel
     def _fillTable(self):
         qubits = len(self._results[0][0]) if self._results else 0
-        valuesTitle = f"Valori q0…q{qubits - 1}" if qubits > 1 else "Valoare q0"
+        valuesTitle = f"Valori q{qubits - 1}…q0" if qubits > 1 else "Valoare q0"
         self.table.setHorizontalHeaderLabels(["Stare (hexa)", valuesTitle, "Probabilitate"])
         self.table.setRowCount(len(self._results))
         highlight = QColor(style.color("highlight"))
