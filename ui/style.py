@@ -106,6 +106,8 @@ CIRCUIT_CONTROL_RADIUS_FACTOR = 0.14   # raza punctului de control, ca fractie d
 CIRCUIT_TARGET_RADIUS_FACTOR = 0.32    # raza cercului tinta (⊕), ca fractie din latura portii
 CIRCUIT_CLASSICAL_WIDTH = 1        # px - fiecare dintre cele doua linii ale liniei clasice (dupa masurare)
 CIRCUIT_CLASSICAL_GAP = 4          # px - distanta dintre cele doua linii ale liniei clasice
+CIRCUIT_REJECTED_WIDTH = 2         # px - conturul portii respinse (validationError)
+CIRCUIT_REJECTED_MS = 1500         # ms - cat timp ramane evidentiata poarta respinsa
 
 # simbolul de masurare (aparatul de masura), ca fractii din latura portii
 CIRCUIT_METER_ARC_FACTOR = 0.30        # raza arcului
@@ -149,6 +151,13 @@ def cursorPen():
 def classicalWirePen():
     """Una dintre cele doua linii subtiri ale liniei clasice; aceeasi culoare ca firul qubitului."""
     return QPen(QColor(circuitColor("wire")), CIRCUIT_CLASSICAL_WIDTH)
+
+
+def rejectedPen():
+    """Conturul portii respinse: culoarea "invalid", colturi rotunjite (RoundJoin)."""
+    pen = QPen(QColor(color("invalid")), CIRCUIT_REJECTED_WIDTH)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    return pen
 
 
 def meterPen(colorName, gateSide):

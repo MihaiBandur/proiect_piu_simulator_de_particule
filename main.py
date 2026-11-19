@@ -39,7 +39,8 @@ def connectModel(model, window):
         signal.connect(results.clearResults)
     model.qubitCountChanged.connect(window.setQubitCount)
     model.modifiedChanged.connect(window.setModified)
-    # poarta respinsa va fi evidentiata de zona de circuit; aici se afiseaza doar mesajul
+    # poarta respinsa: zona de circuit o evidentiaza, iar fereastra afiseaza mesajul
+    model.validationError.connect(view.showRejectedGate)
     model.validationError.connect(lambda _gate, message: window.showPlacementError(message))
     model.resultsReady.connect(results.setResults)
     model.fileSaved.connect(window.fileSaved)
