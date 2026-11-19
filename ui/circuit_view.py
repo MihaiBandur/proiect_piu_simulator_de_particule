@@ -11,6 +11,10 @@ Intrari (sloturi):
   - setCircuit(qubitCount, gates, initialStates)  -> starea de afisat
   - setSelectedGate(symbol)                       -> poarta aleasa in paleta ("" = nimic)
   - refreshAppearance()                           -> la schimbarea paletei / marimii textului
+  - showRejectedGate(gate, message="")            -> legat de CircuitModel.validationError: poarta
+                                                     respinsa (orice obiect cu symbol, qubits, column;
+                                                     None = nimic de aratat) e evidentiata in rosu
+                                                     pentru style.CIRCUIT_REJECTED_MS
 
 Iesiri (semnale):
   - gatePlaceRequested(symbol, qubits, column)    -> qubits = [qubit], [control, tinta] (CNOT)
@@ -35,12 +39,22 @@ Masurare: simbolul aparatului de masura (arc si ac). Dupa masurare, firul qubitu
 linie clasica (linie dubla) pana la urmatoarea poarta de pe acelasi qubit: intre ele, qubitul
 are o valoare sigura, 0 sau 1. Simulatorul permite porti dupa masurare, deci linia clasica nu
 merge neaparat pana la capatul circuitului.
+
+Desenare: fiecare poarta se deseneaza in coordonatele ei locale (save / translate / restore).
+Porti pe un qubit si masurare: originea in centrul portii. Porti controlate: originea pe coloana
+portii, la inaltimea firului q0, deci qubitul q are y local = q * inaltimea unui rand.
+
+Tooltip: peste o poarta plasata apar numele, descrierea, qubitii si pasul; peste eticheta unui
+qubit, starea lui initiala.
+
+Poarta respinsa: la orice plasare sau mutare refuzata (de vedere sau de model, prin
+validationError), celulele portii sunt colorate in rosu si conturate cateva clipe.
 """
 from dataclasses import dataclass
 
-from PySide6.QtCore import QEvent, QRectF, QPointF, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QRectF, QPointF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
-from PySide6.QtWidgets import QAbstractScrollArea, QApplication, QFrame
+from PySide6.QtWidgets import QAbstractScrollArea, QApplication, QFrame, QToolTip
 
 from circuit.gate import GATE_TYPES
 from circuit.quantum_circuit import DEFAULT_QUBITS
@@ -55,6 +69,7 @@ from ui.gate_palette import (
 )
 
 GATE_INFO = {symbol: (name, role) for symbol, name, role, _ in PALETTE_GATES}
+GATE_DESCRIPTIONS = {symbol: description for symbol, _, _, description in PALETTE_GATES}
 
 ARROW_KEYS = {
     Qt.Key.Key_Left: (0, -1),
@@ -100,6 +115,11 @@ class CircuitView(QAbstractScrollArea):
         self._moving = False        # mouse-ul s-a deplasat destul cat sa fie o mutare, nu un click
         self._moveTarget = None     # (rand, coloana) unde ar ajunge celula apucata
         self._lastHint = ""
+        self._rejected = None       # (randuri sortate, coloana) ale portii respinse, evidentiate in rosu
+        self._rejectTimer = QTimer(self)
+        self._rejectTimer.setSingleShot(True)
+        self._rejectTimer.setInterval(style.CIRCUIT_REJECTED_MS)
+        self._rejectTimer.timeout.connect(self._clearRejected)
         self._side = self._cellW = self._cellH = self._labelW = self._x0 = self._y0 = 0
 
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -121,6 +141,7 @@ class CircuitView(QAbstractScrollArea):
         if self._selected not in self._gates:
             self._selected = None
         self._endMove()
+        self._clearRejected()
         row, col = self._cursorCell
         self._cursorCell = (min(row, max(qubitCount - 1, 0)), col)
         self._hover = None
@@ -143,6 +164,28 @@ class CircuitView(QAbstractScrollArea):
 
     def refreshAppearance(self):
         self._updateMetrics()
+
+    def showRejectedGate(self, gate, _message=""):
+        """Slot pentru CircuitModel.validationError: evidentiaza poarta respinsa de model."""
+        if gate is None:
+            return
+        self._markRejected(gate.qubits, gate.column)
+
+    # ------------------------------------------------------------- poarta respinsa
+    def _markRejected(self, qubits, column):
+        rows = sorted(q for q in qubits if 0 <= q < self._qubitCount)
+        if not rows or column < 0:
+            return
+        self._rejected = (rows, column)
+        self._rejectTimer.start()
+        self._ensureCellVisible(rows[0], column)
+        self.viewport().update()
+
+    def _clearRejected(self):
+        self._rejectTimer.stop()
+        if self._rejected is not None:
+            self._rejected = None
+            self.viewport().update()
 
     # ------------------------------------------------------------- font si dimensiuni
     def _gateFont(self):
@@ -295,6 +338,7 @@ class CircuitView(QAbstractScrollArea):
     def _tryPlace(self, symbol, row, col):
         error = self._validate(symbol, row, col)
         if error:
+            self._markRejected(self._qubitsFor(symbol, row), col)
             self.placementError.emit(error)
             return False
         self.gatePlaceRequested.emit(symbol, list(self._qubitsFor(symbol, row)), col)
@@ -355,6 +399,8 @@ class CircuitView(QAbstractScrollArea):
             return
         error = self._validateMove(gate, row, col, *target)
         if error:
+            newRow, newCol = target
+            self._markRejected(self._movedQubits(gate, row, newRow), newCol)
             self.placementError.emit(error)
         else:
             newRow, newCol = target
@@ -400,6 +446,55 @@ class CircuitView(QAbstractScrollArea):
         if obj is self.viewport() and event.type() == QEvent.Type.Leave:
             self._updateHover(None)
         return super().eventFilter(obj, event)
+
+    # ------------------------------------------------------------- tooltip
+    def viewportEvent(self, event):
+        if event.type() == QEvent.Type.ToolTip:
+            self._showToolTip(event)
+            return True
+        return super().viewportEvent(event)
+
+    def _showToolTip(self, event):
+        """Tooltip pentru poarta sau eticheta de sub mouse; dispare cand mouse-ul paraseste zona."""
+        pos = QPointF(event.pos())
+        text, rect = "", None
+        if self._moving:
+            pass  # in timpul mutarii, tooltip-ul ar acoperi umbra portii
+        elif pos.x() < self._labelW:
+            row = self._rowAtY(pos.y())
+            if row is not None:
+                vs = self.verticalScrollBar().value()
+                rect = QRectF(0, self._y0 + row * self._cellH - vs, self._labelW, self._cellH)
+                text = (f"<b>Qubitul q{row}</b><br>Starea initiala: |{self._initialStates[row]}⟩"
+                        f"<br>Click pentru a o schimba.")
+        else:
+            cell = self._cellAt(pos)
+            gate = self._cells.get((cell[1], cell[0])) if cell is not None else None
+            if gate is not None:
+                text = self._gateToolTip(gate)
+                rows = sorted(gate.qubits)
+                hs, vs = self._offset()
+                rect = self._cellRect(rows[0], gate.column).united(self._cellRect(rows[-1], gate.column))
+                rect.translate(-hs, -vs)
+        if text:
+            QToolTip.showText(event.globalPos(), text, self.viewport(), rect.toAlignedRect())
+        else:
+            QToolTip.hideText()
+            event.ignore()
+
+    def _gateToolTip(self, gate):
+        name, role = GATE_INFO.get(gate.symbol, (gate.symbol, ROLE_SINGLE))
+        lines = [f"<b>{name}</b> ({gate.symbol})"]
+        description = GATE_DESCRIPTIONS.get(gate.symbol)
+        if description:
+            lines.append(description)
+        if role == ROLE_CONTROLLED and len(gate.qubits) >= 2:
+            *controls, target = gate.qubits
+            lines.append("Control: " + ", ".join(f"q{q}" for q in controls) + f" &nbsp;Tinta: q{target}")
+        else:
+            lines.append("Qubit: " + ", ".join(f"q{q}" for q in gate.qubits))
+        lines.append(f"Pasul {gate.column + 1}")
+        return "<br>".join(lines)
 
     # ------------------------------------------------------------- mouse
     def mouseMoveEvent(self, event):
@@ -538,6 +633,7 @@ class CircuitView(QAbstractScrollArea):
         self._paintHoverCell(painter)
         self._paintWires(painter, right)
         self._paintGates(painter)
+        self._paintRejected(painter)
         self._paintPreview(painter)
         self._paintMovePreview(painter)
         self._paintKeyboardCursor(painter)
@@ -614,6 +710,23 @@ class CircuitView(QAbstractScrollArea):
         painter.setBrush(QColor(style.color("highlight")))
         painter.drawRoundedRect(rect.adjusted(-pad, -pad, pad, pad), style.CORNER_RADIUS, style.CORNER_RADIUS)
 
+    def _paintRejected(self, painter):
+        """Poarta respinsa: celulele ei colorate in rosu, cu contur."""
+        if self._rejected is None:
+            return
+        rows, column = self._rejected
+        rect = self._cellRect(rows[0], column).united(self._cellRect(rows[-1], column))
+        painter.save()
+        painter.setOpacity(style.CIRCUIT_INVALID_OPACITY)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(style.color("invalid")))
+        painter.drawRoundedRect(rect, style.CORNER_RADIUS, style.CORNER_RADIUS)
+        painter.setOpacity(1.0)
+        painter.setPen(style.rejectedPen())
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(rect, style.CORNER_RADIUS, style.CORNER_RADIUS)
+        painter.restore()
+
     def _paintPreview(self, painter):
         symbol = self._activeSymbol()
         if not symbol or self._hover is None:
@@ -672,24 +785,28 @@ class CircuitView(QAbstractScrollArea):
         if role == ROLE_CONTROLLED and len(qubits) >= 2:
             self._drawControlled(painter, color, qubits, column)
             return
-        rect = self._gateRect(qubits[0], column)
-        radius = rect.height() / 2 if role == ROLE_MEASURE else style.CORNER_RADIUS
+        # coordonate locale: originea in centrul portii, deci desenul nu depinde de pozitia in circuit
+        painter.save()
+        painter.translate(self._center(qubits[0], column))
+        half = self._side / 2
+        rect = QRectF(-half, -half, self._side, self._side)
+        radius = half if role == ROLE_MEASURE else style.CORNER_RADIUS
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(color)
         painter.drawRoundedRect(rect, radius, radius)
         if role == ROLE_MEASURE:
-            self._drawMeter(painter, rect)
-            return
-        painter.setPen(QColor(style.color("gate_text")))
-        painter.setFont(self._gateFont())
-        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, symbol)
+            self._drawMeter(painter, self._side)
+        else:
+            painter.setPen(QColor(style.color("gate_text")))
+            painter.setFont(self._gateFont())
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, symbol)
+        painter.restore()
 
-    def _drawMeter(self, painter, rect):
-        """Aparatul de masura, desenat in coordonatele locale ale portii (originea la baza arcului)."""
-        side = rect.height()
+    def _drawMeter(self, painter, side):
+        """Aparatul de masura, apelat cu originea in centrul portii; se muta la baza arcului."""
         radius = side * style.CIRCUIT_METER_ARC_FACTOR
         painter.save()
-        painter.translate(rect.center() + QPointF(0, side * style.CIRCUIT_METER_BASELINE_FACTOR))
+        painter.translate(0, side * style.CIRCUIT_METER_BASELINE_FACTOR)
         painter.setPen(style.meterPen("gate_text", side))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         # semicercul de sus: unghiurile Qt sunt in 1/16 de grad, de la 0° (dreapta) spre 180° (stanga)
@@ -700,25 +817,36 @@ class CircuitView(QAbstractScrollArea):
         painter.restore()
 
     def _drawControlled(self, painter, color, qubits, column):
-        """CNOT si Toffoli: puncte pe qubitii de control, ⊕ pe tinta (ultimul qubit), linie intre ele."""
+        """CNOT si Toffoli: puncte pe qubitii de control, ⊕ pe tinta (ultimul qubit), linie intre ele.
+
+        Coordonate locale: originea pe coloana portii, la inaltimea firului q0.
+        """
         *controls, target = qubits
         rows = sorted(qubits)
-        targetCenter = self._center(target, column)
+        painter.save()
+        painter.translate(self._center(0, column))
+
+        def local(qubit):
+            return QPointF(0, qubit * self._cellH)
+
         pen = style.wirePen()
         pen.setColor(color)
         pen.setWidth(style.CIRCUIT_CONTROL_LINE_WIDTH)
         painter.setPen(pen)
-        painter.drawLine(self._center(rows[0], column), self._center(rows[-1], column))
+        painter.drawLine(local(rows[0]), local(rows[-1]))
 
         dot = self._side * style.CIRCUIT_CONTROL_RADIUS_FACTOR
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(color)
         for control in controls:
-            painter.drawEllipse(self._center(control, column), dot, dot)
+            painter.drawEllipse(local(control), dot, dot)
 
+        # tinta (⊕): inca o translatie, in centrul cercului
         ring = self._side * style.CIRCUIT_TARGET_RADIUS_FACTOR
+        painter.translate(local(target))
         painter.setPen(pen)
         painter.setBrush(self.palette().base())
-        painter.drawEllipse(targetCenter, ring, ring)
-        painter.drawLine(QPointF(targetCenter.x() - ring, targetCenter.y()), QPointF(targetCenter.x() + ring, targetCenter.y()))
-        painter.drawLine(QPointF(targetCenter.x(), targetCenter.y() - ring), QPointF(targetCenter.x(), targetCenter.y() + ring))
+        painter.drawEllipse(QPointF(0, 0), ring, ring)
+        painter.drawLine(QPointF(-ring, 0), QPointF(ring, 0))
+        painter.drawLine(QPointF(0, -ring), QPointF(0, ring))
+        painter.restore()

@@ -20,7 +20,7 @@ Commit-urile cu mesaje vagi („modificare”, „ceva”) sunt descrise după c
   numărul de qubiți, starea inițială |0⟩/|1⟩, Run cu histograma și tabelul de rezultate, iconițele SVG din toolbar și meniuri,
   salvarea și deschiderea circuitelor (JSON, cu verificarea fișierelor corupte), dialogul „Circuit nou”,
   simbolul de măsurare și linia clasică.
-- **Ce lipsește:** logarea, tooltip-urile din circuit, evidențierea porții respinse, diacriticele din interfață, documentarea.
+- **Ce lipsește:** logarea, diacriticele din interfață, documentarea. Tooltip-urile din circuit și evidențierea porții respinse sunt făcute în [Etapa 10](#etapa-10--task-urile-rămase-ale-lui-matei-19-noiembrie-2026-necomis), necomise.
 
 ### Echipa
 
@@ -280,6 +280,36 @@ Problema vine din Etapa 7; o soluție posibilă este un `QSplitter` între circu
 **Fișiere atinse:** nou `ui/new_circuit_dialog.py`; modificate `circuit/gate.py`, `circuit/quantum_circuit.py`, `circuit/circuit_model.py`, `simulation/simulator.py`, `main.py`, `test_logic.py`, `ui/circuit_view.py`, `ui/gate_palette.py`, `ui/main_window.py`, `ui/style.py`, `docs/glosar.md`, `history.md`.
 Matei trebuie anunțat că `numpy` a fost scos din poarta lui și că zona de circuit s-a schimbat. Cosette trebuie anunțată pentru paletă, fereastră, glosar și dialogul nou.
 
+### Etapa 10 — Task-urile rămase ale lui Matei (19 noiembrie 2026, necomis)
+
+Lucru făcut cu Claude Code, peste commit-ul `53b07ed` al Cosettei. Între Etapa 9 și această etapă au apărut pe GitHub `56cab01` („save updated”, Mihai: Etapa 9) și `53b07ed` („Finisare taskuri Cosette (conform curs)”), încă nedescrise aici.
+**Nu este încă în niciun commit.**
+
+**Matei — zona de circuit** (`ui/circuit_view.py`, secțiunea lui din `ui/style.py`, `main.py`):
+- **Porțile în coordonate locale:** fiecare poartă se desenează între `save()` și `restore()`, după un `translate()`.
+  - Porțile pe un qubit și măsurarea au originea în centrul porții, iar simbolul de măsurare se mută de acolo la baza arcului.
+  - CNOT și Toffoli au originea pe coloana porții, la firul q0. Qubitul q are y local = q × înălțimea rândului, iar ⊕ are încă o translație, în centrul cercului.
+  - Captura circuitului e identică pixel cu pixel cu cea dinainte (H, CX, CCX cu qubiții în altă ordine, M, linia clasică).
+- **Tooltip pe circuit** (`viewportEvent`, `QEvent.ToolTip`, `QToolTip.showText` cu dreptunghiul porții):
+  - pe poartă: numele, simbolul, descrierea din `PALETTE_GATES`, controalele și ținta (sau qubitul) și pasul;
+  - pe eticheta qubitului: starea inițială;
+  - în timpul mutării nu apare, iar pe celulele goale se ascunde.
+- **Poarta respinsă:** slotul nou `showRejectedGate(gate, message)` este legat în `main.py` de `CircuitModel.validationError`.
+  - Celulele porții respinse se colorează în roșu și primesc un contur (`style.rejectedPen()`, cu `RoundJoin`) timp de `CIRCUIT_REJECTED_MS` = 1,5 s.
+  - Același semn apare și la plasările și mutările refuzate chiar de zona de circuit (celulă ocupată, poartă care nu încape).
+  - `gate = None` e ignorat. Qubiții din afara circuitului nu se desenează. Orice modificare a circuitului șterge evidențierea.
+- **Stilurile `QPen`:** `DashLine` (cursorul de tastatură), `RoundCap` (măsurarea), `RoundJoin` (poarta respinsă), linia dublă (linia clasică). PDF-ul nu e în repository, deci nu s-a putut verifica dacă se cere altceva.
+
+**Verificare:** `test_logic.py` 8/8. Separat, fără fereastră vizibilă, cu scripturi temporare care nu sunt în repository:
+- comparația capturilor înainte/după;
+- evidențierea poziției respinse de model, dispariția ei după 1,5 s, `None` ignorat;
+- evidențierea la clic pe celulă ocupată și la mutarea cu mouse-ul pe celulă ocupată, cu circuitul neschimbat;
+- tooltip-urile pe Toffoli, pe H, pe eticheta unui qubit și pe o celulă goală.
+
+**De observat:** în `ui/` există fișierul nou `circuit_ui.py`, care nu e în git. E un prototip vechi pe PyQt6: importă `dependencies`, șters în Etapa 5, și nu e folosit de aplicație.
+
+**Fișiere atinse:** `ui/circuit_view.py`, `ui/style.py`, `main.py`, `history.md`.
+
 ---
 
 ## Push-uri și pull-uri
@@ -341,11 +371,9 @@ Python-ul de sistem nu are PySide6, iar `numpy` nu este o dependență a proiect
   - documentarea: UML actualizat (cu Toffoli, salvarea și dialogul nou), diagrama de secvență, chestionarul, testele la scalare;
   - înălțimea panoului Statistics (vezi „Observat pe 05.11” din Etapa 9).
 - **Matei:**
-  - porțile desenate în coordonate locale (`save`/`translate`/`restore`); deocamdată doar simbolul de măsurare este desenat așa;
-  - tooltip pe porțile din circuit;
-  - evidențierea porții primite prin `validationError`;
-  - stilurile `QPen` cerute: linia clasică și `RoundCap` (la simbolul de măsurare) există acum, iar `DashLine` era deja la cursorul de tastatură.
-    De verificat în PDF dacă se mai cere ceva.
+  - ~~porțile în coordonate locale~~, ~~tooltip pe circuit~~, ~~evidențierea porții din `validationError`~~: făcute în Etapa 10;
+  - de verificat în PDF dacă se cer și alte stiluri `QPen` decât `DashLine`, `RoundCap`, `RoundJoin` și linia dublă;
+  - de hotărât ce se face cu `ui/circuit_ui.py` (prototip vechi, necomis).
 - **Cosette:**
   - diacritice în textele din interfață, ca în glosar, inclusiv în dialogul „Circuit nou” și în descrierea porții Toffoli;
   - justificarea designului în raport;
