@@ -43,7 +43,7 @@ Stadiu testat: toate panourile reale (paleta cu Toffoli, zona de circuit, histog
 | Mare | 596 × 518 px | – | 378 × 155 px |
 | Foarte mare | 626 × 566 px | – | 378 × 151 px |
 
-Capturi: `capturi/redimensionare_minim_5qubiti.png` (minim, text Foarte mare) si `capturi/redimensionare_pornire_5qubiti.png` (fereastra de pornire, 1100 × 720 px).
+Capturi: `capturi/redimensionare_minim_5qubiti.png` (minim, text Foarte mare) si `capturi/redimensionare_pornire_5qubiti.png` (fereastra de pornire, 1100 × 720 px, inainte de corectura).
 
 **Rezultate.**
 
@@ -52,9 +52,19 @@ Capturi: `capturi/redimensionare_minim_5qubiti.png` (minim, text Foarte mare) si
 - La dimensiunea minima, zona de circuit arata doar circa un qubit, restul se vede prin derulare.
 - Chiar la fereastra de pornire, cu 5 qubiti, zona de circuit primeste 272 px in inaltime, desi are nevoie de 382 px; q4 se vede doar prin derulare. Cauza: panoul Statistics isi pastreaza mereu inaltimea preferata (circa 284 px), chiar si cand histograma are spatiu liber.
 
+**Corectura.**
+
+- panoul Statistics nu avea factor de intindere, asa ca layout-ul ii pastra mereu inaltimea preferata, iar tot spatiul ramas mergea la circuit;
+- zona de circuit si panoul Statistics primesc acum factorii de intindere 2 si 1 (`addWidget(..., stretch)`), deci spatiul vertical se imparte 2:1 intre ele;
+- la fereastra de pornire, cu 5 qubiti, zona de circuit primeste 355 px in loc de 272 px si se vad toti qubitii; histograma primeste o bara de derulare mica;
+- pe fereastra maximizata (1920 × 1008 px) incap fara derulare toti cei 5 qubiti, la Normal si la Foarte mare, iar histograma creste si ea (294 px);
+- dimensiunea minima a ferestrei a ramas aceeasi, iar textul nu se taie la nicio marime.
+
+Captura: `capturi/redimensionare_pornire_5qubiti_dupa.png`.
+
 ## Concluzie
 
 Dimensiunea minima a ferestrei nu se fixeaza manual cu o valoare constanta: ea rezulta din `minimumSizeHint()`-ul panourilor si se adapteaza la marimea textului (intre 573 × 506 si 626 × 566 px).
 Fereastra porneste la 1100 × 720 px.
 
-De rezolvat: impartirea spatiului vertical intre zona de circuit si panoul Statistics, astfel incat un circuit cu 5 qubiti sa incapa fara derulare la fereastra de pornire.
+Spatiul vertical se imparte 2:1 intre zona de circuit si panoul Statistics.

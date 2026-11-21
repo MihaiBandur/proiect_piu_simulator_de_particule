@@ -189,8 +189,9 @@ class MainWindow(QMainWindow):
 
         rightLayout = QVBoxLayout()
         rightLayout.setSpacing(style.SPACING_M)
-        rightLayout.addWidget(self.circuitBox, 1)
-        rightLayout.addWidget(self.statisticsBox)
+                
+        rightLayout.addWidget(self.circuitBox, style.CIRCUIT_STRETCH)
+        rightLayout.addWidget(self.statisticsBox, style.STATISTICS_STRETCH)
 
         rootLayout = QHBoxLayout(central)
         rootLayout.setContentsMargins(style.SPACING_M, style.SPACING_M, style.SPACING_M, style.SPACING_M)
